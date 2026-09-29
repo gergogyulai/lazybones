@@ -1,0 +1,9 @@
+import Foundation
+
+struct Plex: ServiceModule {
+    let service = Service(
+        id: "plex", name: "Plex", url: URL(string: "https://app.plex.tv/desktop")!,
+        tint: RGB(0.12, 0.12, 0.13), agent: .safari, spatialNav: true,
+        symbol: "chevron.forward.circle.fill", tagline: "Your media server, and free movies and TV",
+        accentTint: RGB(0.9, 0.63, 0.05), builtIn: true)
+}
