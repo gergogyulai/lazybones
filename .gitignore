@@ -14,4 +14,7 @@ xcuserdata/
 .swiftpm/
 
 # Downloaded extensions
-Spike/Extensions/
+/Extensions/
+
+# Built dev tools
+Tools/RemoteHUD/RemoteHUD
