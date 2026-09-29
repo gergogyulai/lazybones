@@ -88,15 +88,7 @@ struct TVSettings: View {
         }
     }
 
-    private var statusText: String {
-        switch tv.status {
-        case .off: "Not connected"
-        case .connecting: "Connecting…"
-        case .pairing: "Accept the prompt on your TV"
-        case .connected: "Connected"
-        case let .failed(reason): "Unavailable: \(reason)"
-        }
-    }
+    private var statusText: String { tv.status.summary }
 
     private var statusColor: Color {
         switch tv.status {

@@ -45,15 +45,7 @@ struct KeyboardView: View {
                     .padding(.horizontal, 44 * u)
                     .padding(.top, 36 * u)
                     .padding(.bottom, 26 * u)
-                    .background {
-                        let shape = RoundedRectangle(cornerRadius: 48 * u, style: .continuous)
-                        shape.fill(.ultraThinMaterial)
-                            .overlay(shape.fill(.black.opacity(0.4)))
-                            .overlay(shape.fill(LinearGradient(colors: [accent.opacity(0.14), .clear],
-                                                               startPoint: .top, endPoint: .center)))
-                            .overlay(shape.strokeBorder(.white.opacity(0.12), lineWidth: 1))
-                            .shadow(color: .black.opacity(0.55), radius: 50 * u, y: 20 * u)
-                    }
+                    .glassSurface(RoundedRectangle(cornerRadius: 48 * u, style: .continuous), tint: accent.opacity(0.14))
                     .padding(.bottom, 40 * u)
                 }
             }

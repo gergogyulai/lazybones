@@ -28,7 +28,7 @@ struct LaunchOptions: Equatable {
     --remote          show the on-screen remote
     --ext-debug       report the ad blocker's rulesets
     --open <id>       open a service at launch (e.g. youtube)
-    --open-delay <s>  wait this long after the ad blocker loads before opening
+    --open-delay <s>  wait this long (after the ad blocker loads, if it's on) before opening
     """
 
     init() {}

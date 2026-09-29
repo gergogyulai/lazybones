@@ -28,9 +28,8 @@ struct VolumeHUDView: View {
         .foregroundStyle(.white)
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
-        .background(.ultraThinMaterial, in: Capsule())
+        .glassSurface(Capsule())
         .environment(\.colorScheme, .dark)
-        .shadow(color: .black.opacity(0.4), radius: 20, y: 8)
         .allowsHitTesting(false)
     }
 }

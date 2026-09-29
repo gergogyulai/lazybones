@@ -8,6 +8,17 @@ public final class TVLink: ObservableObject {
     public enum Status: Equatable, Sendable {
         case off, connecting, pairing, connected
         case failed(String)
+
+        /// A line for a settings screen.
+        public var summary: String {
+            switch self {
+            case .off: "Not connected"
+            case .connecting: "Connecting…"
+            case .pairing: "Accept the prompt on your TV"
+            case .connected: "Connected"
+            case let .failed(reason): "Unavailable: \(reason)"
+            }
+        }
     }
 
     @Published public private(set) var status = Status.off

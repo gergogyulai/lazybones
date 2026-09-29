@@ -1,9 +1,12 @@
 import SwiftUI
 
-/// The one window: the launcher or the open service, with the keyboard, HUDs and Control Center on top.
+/// The one window: the launcher, or the open service growing out of it, with the keyboard, HUDs,
+/// app switcher, settings and Control Center on top.
 struct RootView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var controlCenter: ControlCenter
+    @EnvironmentObject var switcher: AppSwitcher
+    @EnvironmentObject var settingsScreen: SettingsScreen
     @EnvironmentObject var keyboard: KeyboardController
     @EnvironmentObject var diagnostics: Diagnostics
     @EnvironmentObject var volume: VolumeController
@@ -12,10 +15,17 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
-            if let s = model.active, let wv = model.web.views[s.id] {
-                WebContainer(webView: wv).id(s.id).ignoresSafeArea()
-            } else {
+            if !model.launcherHidden {
+                // Recedes as a service opens over it, and comes back as it closes.
                 LauncherView()
+                    .scaleEffect(model.zoomed ? 1.08 : 1)
+                    .opacity(model.zoomed ? 0 : 1)
+                    .transition(.opacity.combined(with: .scale(scale: 1.08)))
+            }
+            ForEach(model.mounted) { s in
+                if let wv = model.web.views[s.id] {
+                    ServiceLayer(service: s, webView: wv)
+                }
             }
             if keyboard.isVisible, let s = model.active {
                 KeyboardView(accent: s.accent ?? s.color)
@@ -30,6 +40,14 @@ struct RootView: View {
                 }
             }
             .padding(20)
+            if switcher.isOpen {
+                AppSwitcherView()
+                    .transition(.opacity.combined(with: .scale(scale: 1.05)))
+            }
+            if settingsScreen.isOpen {
+                SettingsScreenView()
+                    .transition(.opacity.combined(with: .scale(scale: 1.05)))
+            }
             if controlCenter.isOpen {
                 ControlCenterView(perform: model.perform)
             }

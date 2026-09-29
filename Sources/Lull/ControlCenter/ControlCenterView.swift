@@ -23,7 +23,7 @@ struct ControlCenterView: View {
                     header(u)
                     HStack(spacing: 18 * u) {
                         smallTile(.home, "house.fill", "Home", u)
-                        smallTile(.sleep, "power", "Sleep", u)
+                        smallTile(.displayOff, "power", "Display Off", u)
                         if tv.status == .connected { smallTile(.tvOff, "tv", "Turn Off TV", u) }
                     }
                     volumeTile(u)
@@ -31,6 +31,10 @@ struct ControlCenterView: View {
                     networkCard(u)
                     HStack(spacing: 18 * u) {
                         if cc.canReload { smallTile(.reload, "arrow.clockwise", "Reload", u) }
+                        if cc.showsSleepMode {
+                            smallTile(.sleepMode, cc.sleepModeOn ? "moon.zzz.fill" : "moon.zzz", "Sleep Mode", u,
+                                      lit: cc.sleepModeOn)
+                        }
                         smallTile(.debug, "ladybug.fill", diagnostics.isVisible ? "Debug On" : "Debug Off", u,
                                   lit: diagnostics.isVisible)
                         smallTile(.settings, "gearshape.fill", "Settings", u)
@@ -38,14 +42,7 @@ struct ControlCenterView: View {
                 }
                 .padding(28 * u)
                 .frame(width: 580 * u)
-                .background {
-                    RoundedRectangle(cornerRadius: 48 * u, style: .continuous)
-                        .fill(.ultraThinMaterial)
-                        .overlay(RoundedRectangle(cornerRadius: 48 * u, style: .continuous).fill(.black.opacity(0.3)))
-                        .overlay(RoundedRectangle(cornerRadius: 48 * u, style: .continuous)
-                            .strokeBorder(.white.opacity(0.12), lineWidth: 1))
-                        .shadow(color: .black.opacity(0.5), radius: 40 * u, y: 20 * u)
-                }
+                .glassSurface(RoundedRectangle(cornerRadius: 48 * u, style: .continuous))
                 .environment(\.colorScheme, .dark)
                 .padding(40 * u)
                 .transition(.move(edge: .trailing).combined(with: .opacity))
@@ -93,6 +90,7 @@ struct ControlCenterView: View {
             Text(label)
                 .font(.system(size: 19 * u, weight: .semibold))
                 .lineLimit(1)
+                .minimumScaleFactor(0.7)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20 * u)
@@ -203,7 +201,7 @@ struct ControlCenterView: View {
         }
         .padding(.horizontal, 20 * u)
         .padding(.vertical, 16 * u)
-        .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 28 * u, style: .continuous))
+        .glassSurface(RoundedRectangle(cornerRadius: 28 * u, style: .continuous))
     }
 
     private func networkDetail(_ n: NetworkInfo) -> String {
@@ -218,16 +216,14 @@ struct ControlCenterView: View {
 }
 
 private extension View {
-    /// tvOS Control Center focus: the focused tile turns white with dark content and lifts.
+    /// tvOS Control Center focus: the focused tile turns to bright glass with dark content and lifts.
     func tile(focused: Bool, u: CGFloat, expanded: Bool = false) -> some View {
         self
             .foregroundStyle(focused ? .black : .white)
-            .background(
-                focused ? AnyShapeStyle(.white) : AnyShapeStyle(.white.opacity(expanded ? 0.16 : 0.12)),
-                in: RoundedRectangle(cornerRadius: 28 * u, style: .continuous)
-            )
+            .glassSurface(RoundedRectangle(cornerRadius: 28 * u, style: .continuous),
+                          tint: focused ? .white.opacity(0.92) : expanded ? .white.opacity(0.08) : nil, interactive: true)
             .scaleEffect(focused ? 1.04 : 1)
-            .shadow(color: .black.opacity(focused ? 0.35 : 0), radius: 16 * u, y: 8 * u)
+            .shadow(color: .black.opacity(focused ? 0.3 : 0), radius: 16 * u, y: 8 * u)
             .zIndex(focused ? 1 : 0)
             .animation(.spring(duration: 0.25, bounce: 0.2), value: focused)
     }

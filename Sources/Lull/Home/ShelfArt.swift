@@ -62,7 +62,7 @@ struct ShelfCaption: View {
                 .foregroundStyle(.white.opacity(0.5))
                 .padding(.horizontal, 14 * unit)
                 .padding(.vertical, 6 * unit)
-                .background(.white.opacity(0.12), in: Capsule())
+                .glassSurface(Capsule())
                 .padding(.top, 6 * unit)
         }
         .foregroundStyle(.white)

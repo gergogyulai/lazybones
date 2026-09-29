@@ -8,8 +8,8 @@ import SwiftUI
 /// panel come back to AppModel as an `Action`.
 @MainActor
 final class ControlCenter: ObservableObject {
-    enum Item: Hashable { case home, sleep, tvOff, volume, output, reload, debug, settings }
-    enum Action { case close, home, sleep, tvOff, reload, toggleDebug, settings }
+    enum Item: Hashable { case home, displayOff, tvOff, volume, output, reload, sleepMode, debug, settings }
+    enum Action { case close, home, displayOff, tvOff, reload, toggleSleepMode, toggleDebug, settings }
 
     @Published var isOpen = false
     @Published var focus = Item.home
@@ -22,6 +22,9 @@ final class ControlCenter: ObservableObject {
     @Published var network = NetworkInfo()
     /// Whether a service is open, so Reload has something to act on.
     @Published var canReload = false
+    /// Whether the Sleep Mode tile is shown (a setting), and whether Sleep Mode is on.
+    @Published var showsSleepMode = false
+    @Published var sleepModeOn = false
 
     private let audio: VolumeRouter
     private let tv: TVLink
@@ -35,13 +38,15 @@ final class ControlCenter: ObservableObject {
     }
 
     var rows: [[Item]] {
-        [tv.status == .connected ? [.home, .sleep, .tvOff] : [.home, .sleep],
+        [tv.status == .connected ? [.home, .displayOff, .tvOff] : [.home, .displayOff],
          [.volume], [.output],
-         canReload ? [.reload, .debug, .settings] : [.debug, .settings]]
+         (canReload ? [.reload] : []) + (showsSleepMode ? [.sleepMode] : []) + [.debug, .settings]]
     }
 
-    func open(canReload: Bool) {
+    func open(canReload: Bool, showsSleepMode: Bool, sleepModeOn: Bool) {
         self.canReload = canReload
+        self.showsSleepMode = showsSleepMode
+        self.sleepModeOn = sleepModeOn
         focus = .home
         outputExpanded = false
         refresh()
@@ -94,9 +99,10 @@ final class ControlCenter: ObservableObject {
     private func activate() -> Action? {
         switch focus {
         case .home: return .home
-        case .sleep: return .sleep
+        case .displayOff: return .displayOff
         case .tvOff: return .tvOff
         case .reload: return .reload
+        case .sleepMode: return .toggleSleepMode
         case .debug: return .toggleDebug
         case .settings: return .settings
         case .volume:

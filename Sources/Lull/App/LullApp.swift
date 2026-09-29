@@ -10,6 +10,8 @@ struct LullApp: App {
             RootView()
                 .environmentObject(model)
                 .environmentObject(model.controlCenter)
+                .environmentObject(model.switcher)
+                .environmentObject(model.settingsScreen)
                 .environmentObject(model.tv)
                 .environmentObject(model.keyboard)
                 .environmentObject(model.diagnostics)
@@ -19,8 +21,11 @@ struct LullApp: App {
         }
         .commands {
             CommandMenu("Lull") {
-                Button("Home") { model.goHome() }.keyboardShortcut("h", modifiers: [.command, .shift])
+                Button("Home") { model.homePressed() }.keyboardShortcut("h", modifiers: [.command, .shift])
+                Button("App Switcher") { model.openSwitcher() }.keyboardShortcut("a", modifiers: [.command, .shift])
                 Button("Control Center") { model.toggleControlCenter() }.keyboardShortcut("c", modifiers: [.command, .shift])
+                Button("Sleep Mode") { model.toggleSleepMode() }.keyboardShortcut("s", modifiers: [.command, .shift])
+                Button("Launcher Settings") { model.openSettingsScreen() }.keyboardShortcut(",", modifiers: [.command, .option])
                 Button("Toggle Debug") { model.diagnostics.toggle() }.keyboardShortcut("d", modifiers: [.command, .shift])
                 Button("Remote Simulator") { model.simulator.toggle() }.keyboardShortcut("r", modifiers: [.command, .option])
                 Button("Reload") { model.reload() }.keyboardShortcut("r")

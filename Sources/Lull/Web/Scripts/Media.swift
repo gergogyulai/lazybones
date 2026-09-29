@@ -24,7 +24,51 @@ extension Scripts {
     })()
     """#
 
-    static let pause = "document.querySelectorAll('video').forEach(v => v.pause())"
+    static let pause = "document.querySelectorAll('video, audio').forEach(m => m.pause())"
+
+    /// Tells the app whether any media is playing, so it knows which services are making sound
+    /// behind the Home Screen. Reported as `playing` = 1 or 0, only when it changes.
+    static let playback = #"""
+    (() => {
+      if (window.top !== window || window.__lullPlayback) return;
+      window.__lullPlayback = true;
+      let last = null;
+      const check = () => {
+        const now = [...document.querySelectorAll('video, audio')].some(m => !m.paused && !m.ended) ? '1' : '0';
+        if (now === last) return;
+        last = now;
+        try { webkit.messageHandlers.lull.postMessage({ k: 'playing', v: now }); } catch (_) {}
+      };
+      for (const t of ['play', 'playing', 'pause', 'ended', 'emptied'])
+        document.addEventListener(t, () => setTimeout(check, 0), true);
+    })();
+    """#
+
+    static let exitFullscreen = "document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen && document.webkitExitFullscreen()"
+
+    /// Back is pressed in a page that handles it itself. These two bracket the key press and answer
+    /// whether the page reacted (a menu opened or closed, a route changed, fullscreen toggled), so a
+    /// Back the page ignores can take you Home instead of doing nothing.
+    static let watchStart = #"""
+    (() => {
+      const w = window.__lullWatch = { changed: false, href: location.href };
+      w.observer = new MutationObserver(() => { w.changed = true; });
+      // Structure and the attributes overlays use, not styles: spinners and progress bars restyle constantly.
+      w.observer.observe(document, { subtree: true, childList: true, attributes: true,
+        attributeFilter: ['class', 'hidden', 'open', 'aria-hidden', 'aria-expanded', 'aria-modal'] });
+      document.addEventListener('fullscreenchange', () => { w.changed = true; }, { once: true });
+      return true;
+    })()
+    """#
+
+    static let watchEnd = #"""
+    (() => {
+      const w = window.__lullWatch;
+      if (!w) return false;
+      w.observer.disconnect();
+      return w.changed || location.href !== w.href;
+    })()
+    """#
 
     /// Lull's own volume for pages, used when neither the output device nor a TV can change it.
     /// At full volume and unmuted it stays out of the way, so pages' own volume controls work.

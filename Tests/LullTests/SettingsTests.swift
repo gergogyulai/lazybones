@@ -57,6 +57,33 @@ final class SettingsTests: XCTestCase {
         XCTAssertNotNil(defaults.data(forKey: "launcherSettings.unreadable"))
     }
 
+    func testSleepModeDefaultsAreGentleAndOffInControlCenter() throws {
+        let s = LauncherSettings()
+        XCTAssertEqual(s.sleepDim, 0.4)
+        XCTAssertEqual(s.sleepWarmth, 0.6)
+        XCTAssertFalse(s.sleepInControlCenter)
+        // Settings saved before Sleep Mode existed load with those defaults.
+        let old = try decode(#"{"columns": 4}"#)
+        XCTAssertEqual(old.sleepDim, 0.4)
+        XCTAssertFalse(old.sleepInControlCenter)
+    }
+
+    func testSleepModeSettingsRoundTrip() throws {
+        var s = LauncherSettings()
+        s.sleepDim = 0.7
+        s.sleepWarmth = 0.2
+        s.sleepInControlCenter = true
+        XCTAssertEqual(try JSONDecoder().decode(LauncherSettings.self, from: JSONEncoder().encode(s)), s)
+        XCTAssertEqual(s.sleepLevel.dim, 0.7)
+    }
+
+    func testSpotifyIsAddedAfterHBOMaxForExistingUsers() {
+        var s = LauncherSettings()
+        s.services.removeAll { $0.id == "spotify" }
+        let ids = s.mergingNewBuiltIns().services.map(\.id)
+        XCTAssertEqual(ids[ids.firstIndex(of: "max")! + 1], "spotify")
+    }
+
     func testDebugOverlayIsOffByDefault() {
         XCTAssertFalse(LauncherSettings().showDebugOnLaunch)
     }

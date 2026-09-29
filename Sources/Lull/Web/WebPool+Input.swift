@@ -14,12 +14,33 @@ extension WebPool {
         case .right: SyntheticKeys.press(.right, in: win)
         case .select: SyntheticKeys.press(.select, in: win)
         case .back: SyntheticKeys.press(.back, in: win)
-        case .playPause:
-            let id = s.id
-            wv.evaluateJavaScript(Scripts.playPause) { [weak self] result, _ in
-                self?.onReport?(id, "play/pause", "\(result ?? "error")")
-            }
+        case .playPause: togglePlayback(s)
         default: break
+        }
+    }
+
+    /// Back inside a page. `done` says whether something took it; false means there was nowhere
+    /// to go back to, and the caller should go Home.
+    ///
+    /// Sites with a TV interface own their back stack (closing a menu, leaving a player), so they
+    /// get the key and Back only counts if they reacted. Ordinary sites go to the previous page.
+    func back(from s: Service, then done: @escaping (Bool) -> Void) {
+        guard let wv = views[s.id] else { return done(false) }
+        if wv.fullscreenState != .notInFullscreen {
+            wv.evaluateJavaScript(Scripts.exitFullscreen)
+            return done(true)
+        }
+        guard ServiceModules.module(for: s).handlesNavigation || s.agent == .tv else {
+            guard wv.canGoBack else { return done(false) }
+            wv.goBack()
+            return done(true)
+        }
+        wv.evaluateJavaScript(Scripts.watchStart) { [weak self] _, _ in
+            self?.send(.back, to: s)
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(250))
+                wv.evaluateJavaScript(Scripts.watchEnd) { reacted, _ in done(reacted as? Bool == true) }
+            }
         }
     }
 

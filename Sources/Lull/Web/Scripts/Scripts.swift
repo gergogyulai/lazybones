@@ -9,6 +9,7 @@ extension Scripts {
             PageScript(source: hdr, time: .start, mainFrameOnly: false),
             PageScript(source: probe, time: .start),
             PageScript(source: mediaVolume, time: .start),
+            PageScript(source: playback, time: .start),
             PageScript(source: keyboard, time: .start),
         ]
         if spatialNav { list.append(PageScript(source: Scripts.spatialNav, time: .start)) }

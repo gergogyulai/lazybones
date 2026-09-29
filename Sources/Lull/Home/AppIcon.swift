@@ -7,6 +7,8 @@ struct AppIcon: View {
     let move: CGSize
     let trigger: Int
     let metrics: Metrics
+    /// The app is playing audio behind the Home Screen.
+    var playing = false
 
     var body: some View {
         let m = metrics
@@ -20,6 +22,18 @@ struct AppIcon: View {
             .frame(width: m.tileWidth, height: m.tileHeight)
             .clipShape(shape)
             .overlay(shape.strokeBorder(.white.opacity(focused ? 0.25 : 0.08), lineWidth: 1))
+            .overlay(alignment: .topTrailing) {
+                if playing {
+                    Image(systemName: "waveform")
+                        .font(.system(size: 20 * m.unit, weight: .bold))
+                        .symbolEffect(.variableColor.iterative.reversing)
+                        .foregroundStyle(.white)
+                        .padding(9 * m.unit)
+                        .background(.black.opacity(0.45), in: Circle())
+                        .padding(10 * m.unit)
+                        .transition(.scale.combined(with: .opacity))
+                }
+            }
             .keyframeAnimator(initialValue: 0.0, trigger: trigger) { content, t in
                 let k = focused ? t : 0
                 content
@@ -30,7 +44,7 @@ struct AppIcon: View {
                 CubicKeyframe(1, duration: 0.1)
                 SpringKeyframe(0, duration: 0.55, spring: .bouncy)
             }
-            .scaleEffect(focused ? 1.15 : 1)
+            .scaleEffect(focused ? LauncherLayout.focusScale : 1)
             .shadow(color: .black.opacity(focused ? 0.6 : 0.3),
                     radius: (focused ? 34 : 8) * m.unit, y: (focused ? 28 : 4) * m.unit)
 
@@ -43,6 +57,7 @@ struct AppIcon: View {
                 .frame(height: 0, alignment: .top)
         }
         .animation(.spring(duration: 0.3, bounce: 0.2), value: focused)
+        .animation(.spring(duration: 0.3), value: playing)
     }
 
     private var glareStart: UnitPoint {

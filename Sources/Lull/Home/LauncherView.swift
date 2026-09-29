@@ -1,25 +1,28 @@
 import SwiftUI
 
-/// tvOS-style home screen: a full-bleed top shelf for the focused app over a grid of app icons.
-/// Focusing a lower row scrolls the shelf away and leaves it as a blurred backdrop.
+/// tvOS-style home screen: a full-bleed top shelf for the focused app over a grid of app icons,
+/// with a top bar above for the clock and Settings. Focusing a lower row scrolls the shelf away
+/// and leaves it as a blurred backdrop.
 struct LauncherView: View {
     @EnvironmentObject var model: AppModel
-    /// Direction of the last focus move, used to tilt the newly focused icon like tvOS parallax.
-    @State private var move = CGSize.zero
 
     var body: some View {
         GeometryReader { geo in
             let apps = model.visible
             let shelf = model.settings.showShelf
-            let m = Metrics(size: geo.size, columns: model.columns, shelf: shelf)
-            if apps.isEmpty {
-                EmptyLauncher(unit: m.unit)
-            } else {
-                let focused = apps[min(model.selected, apps.count - 1)]
-                let row = model.selected / model.columns
-                let scrolled = shelf ? row > 0 : m.rowTop(row) + m.tileHeight + m.rowSpacing > geo.size.height
+            let layout = LauncherLayout(size: geo.size, columns: model.columns, shelf: shelf, count: apps.count,
+                                        selected: model.selected, appFocused: !model.focus.onBar)
+            let m = layout.metrics
+            let barFocused = model.focus.onBar
+            let audio = Set(model.backgroundAudio.map(\.id))
 
-                ZStack(alignment: .topLeading) {
+            ZStack(alignment: .topLeading) {
+                if apps.isEmpty {
+                    EmptyLauncher(unit: m.unit)
+                } else {
+                    let focused = apps[layout.selected]
+                    let scrolled = layout.scrolled
+
                     if shelf {
                         ShelfArt(service: focused, size: geo.size, unit: m.unit)
                             .id(focused.id)
@@ -30,7 +33,10 @@ struct LauncherView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 0) {
-                        Group {
+                        // Always takes up the header's height, even with no shelf to fill it: modifiers
+                        // on an empty group would silently vanish, and the grid would slide up.
+                        ZStack(alignment: .bottomLeading) {
+                            Color.clear
                             if shelf {
                                 ShelfCaption(service: focused, unit: m.unit)
                                     .id(focused.id)
@@ -45,36 +51,70 @@ struct LauncherView: View {
                             ForEach(0..<m.rows(apps.count), id: \.self) { r in
                                 HStack(spacing: m.gap) {
                                     ForEach(r * m.columns..<min((r + 1) * m.columns, apps.count), id: \.self) { i in
-                                        AppIcon(service: apps[i], focused: i == model.selected,
-                                                move: move, trigger: model.selected, metrics: m)
-                                            .zIndex(i == model.selected ? 1 : 0)
-                                            .onTapGesture { model.selected = i; model.open(apps[i]) }
-                                            .onHover { if $0 { model.selected = i } }
+                                        AppIcon(service: apps[i], focused: i == layout.selected && !barFocused,
+                                                move: model.navDirection, trigger: model.navTick, metrics: m,
+                                                playing: audio.contains(apps[i].id))
+                                            .zIndex(i == layout.selected ? 1 : 0)
+                                            .onTapGesture { model.click(app: i) }
+                                            .onHover { if $0 { model.hover(app: i) } }
                                     }
                                 }
-                                .zIndex(r == row ? 1 : 0)
+                                .zIndex(r == layout.row ? 1 : 0)
                             }
                         }
                     }
                     .padding(.horizontal, m.sidePadding)
-                    .offset(y: scrolled ? m.scrolledRowTop - m.rowTop(row) : 0)
-
-                    if model.settings.showHints {
-                        Text("Clickpad to move · click to open · TV button for home · hold TV or press Power for Control Center · Siri toggles debug · ⌘, for settings")
-                            .font(.system(size: 17 * m.unit))
-                            .foregroundStyle(.white.opacity(0.35))
-                            .padding(.horizontal, m.sidePadding)
-                            .padding(.top, 40 * m.unit)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                    }
+                    .offset(y: layout.scrollOffset)
                 }
-                .animation(.easeInOut(duration: 0.45), value: focused.id)
-                .animation(.spring(duration: 0.5, bounce: 0.1), value: row)
+
+                if model.settings.showHints {
+                    Text("Clickpad to move · click to open · TV button for Home · press it twice for the app switcher · hold it for Control Center")
+                        .font(.system(size: 17 * m.unit))
+                        .foregroundStyle(.white.opacity(0.35))
+                        .lineLimit(1)
+                        .padding(.leading, m.sidePadding)
+                        .padding(.top, 52 * m.unit)
+                        .frame(maxWidth: geo.size.width - 380 * m.unit, maxHeight: .infinity, alignment: .topLeading)
+                }
+
+                TopBar(unit: m.unit, focused: barFocused)
+                    .padding(.trailing, m.sidePadding)
+                    .padding(.top, 32 * m.unit)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
+            .animation(.easeInOut(duration: 0.45), value: apps.isEmpty ? "" : apps[layout.selected].id)
+            .animation(.spring(duration: 0.5, bounce: 0.1), value: layout.row)
+            .animation(.spring(duration: 0.3, bounce: 0.2), value: barFocused)
         }
-        .onChange(of: model.selected) { old, new in
-            let c = model.columns
-            move = CGSize(width: (new % c - old % c).signum(), height: (new / c - old / c).signum())
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { model.launcherFrame = $0 }
+    }
+}
+
+/// The clock and Settings, above the apps. Up from the first row reaches Settings.
+private struct TopBar: View {
+    @EnvironmentObject var model: AppModel
+    let unit: CGFloat
+    let focused: Bool
+
+    var body: some View {
+        HStack(spacing: 28 * unit) {
+            TimelineView(.everyMinute) { ctx in
+                Text(ctx.date, format: .dateTime.hour().minute())
+                    .font(.system(size: 30 * unit, weight: .medium, design: .rounded))
+                    .monospacedDigit()
+                    .foregroundStyle(.white.opacity(0.85))
+                    .shadow(color: .black.opacity(0.5), radius: 6 * unit)
+            }
+            Image(systemName: "gearshape.fill")
+                .font(.system(size: 26 * unit, weight: .semibold))
+                .foregroundStyle(focused ? .black : .white)
+                .frame(width: 64 * unit, height: 64 * unit)
+                .glassSurface(Circle(), tint: focused ? .white.opacity(0.92) : nil, interactive: true)
+                .scaleEffect(focused ? 1.18 : 1)
+                .contentShape(Circle())
+                .onTapGesture { model.openSettingsScreen() }
+                .onHover { if $0 { model.hoverBar() } }
+                .accessibilityLabel("Settings")
         }
     }
 }
@@ -88,7 +128,7 @@ struct EmptyLauncher: View {
                 .font(.system(size: 72 * unit, weight: .light))
             Text("No apps on the Home Screen")
                 .font(.system(size: 40 * unit, weight: .bold, design: .rounded))
-            Text("Open Settings (⌘,) to show or add apps.")
+            Text("Open Settings to show or add apps.")
                 .font(.system(size: 24 * unit))
                 .foregroundStyle(.white.opacity(0.6))
         }

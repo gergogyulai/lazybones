@@ -15,6 +15,12 @@ protocol ServiceModule: Sendable {
     var scripts: [PageScript] { get }
     /// CSS added to every page, e.g. to hide banners that make no sense on a TV.
     var styles: [String] { get }
+    /// Whether going Home pauses the page's media. Music keeps playing instead, like Music on an
+    /// Apple TV, and the remote's Play/Pause still reaches it from the Home Screen.
+    var pausesInBackground: Bool { get }
+    /// A script that toggles playback and returns what it did, for pages whose player is more than
+    /// a bare media element. Without one, the largest video is played or paused.
+    var playPauseScript: String? { get }
     /// The URL to load first, given the service as the user configured it.
     func startURL(for s: Service) -> URL
     /// Changes to the shared web view configuration, before the web view is created.
@@ -27,6 +33,8 @@ extension ServiceModule {
     var handlesNavigation: Bool { false }
     var scripts: [PageScript] { [] }
     var styles: [String] { [] }
+    var pausesInBackground: Bool { true }
+    var playPauseScript: String? { nil }
     func startURL(for s: Service) -> URL { s.url }
     @MainActor func configure(_ config: WKWebViewConfiguration, for s: Service) {}
     @MainActor func prepare(_ webView: WKWebView, for s: Service) {}
@@ -63,7 +71,7 @@ struct PageScript: Sendable {
 enum ServiceModules {
     /// Built-in services in Home Screen order.
     static let builtIn: [any ServiceModule] = [
-        YouTube(), Netflix(), DisneyPlus(), PrimeVideo(), HBOMax(), Plex(), Jellyfin(), Emby(),
+        YouTube(), Netflix(), DisneyPlus(), PrimeVideo(), HBOMax(), Spotify(), Plex(), Jellyfin(), Emby(),
         AdblockTest(), DRMTest(),
     ]
 

@@ -21,10 +21,17 @@ extension WebPool: WKNavigationDelegate, WKUIDelegate {
     func webView(_ wv: WKWebView, didFinish _: WKNavigation!) {
         applyMediaVolume(to: wv)
         report(wv, "page", wv.url?.absoluteString ?? "?")
+        if let id = serviceID(of: wv) { onLoaded?(id) }
     }
 
     func webView(_ wv: WKWebView, didFailProvisionalNavigation _: WKNavigation!, withError error: Error) {
         report(wv, "load", "failed: \(error.localizedDescription)")
+        if let id = serviceID(of: wv) { onLoaded?(id) }
+    }
+
+    func webView(_ wv: WKWebView, didFail _: WKNavigation!, withError error: Error) {
+        report(wv, "load", "failed: \(error.localizedDescription)")
+        if let id = serviceID(of: wv) { onLoaded?(id) }
     }
 
     func webViewWebContentProcessDidTerminate(_ wv: WKWebView) {

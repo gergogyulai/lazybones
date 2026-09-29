@@ -1,5 +1,6 @@
 import Foundation
 import LGTV
+import MacSystem
 
 /// Everything the user can configure about the launcher. Saved by `SettingsStore`.
 struct LauncherSettings: Codable, Equatable {
@@ -17,8 +18,15 @@ struct LauncherSettings: Codable, Equatable {
     /// Show the on-screen keyboard when a text field in a page is focused.
     var keyboard = true
     var keyboardLayout = KeyboardLayout.abc
+    /// Sleep Mode: how far it dims the screen (0...0.8) and how much blue light it filters (0...1).
+    var sleepDim = 0.4
+    var sleepWarmth = 0.6
+    /// Put a Sleep Mode tile in Control Center.
+    var sleepInControlCenter = false
 
     var visibleServices: [Service] { services.filter { !hidden.contains($0.id) } }
+
+    var sleepLevel: ScreenTint.Level { ScreenTint.Level(dim: sleepDim, warmth: sleepWarmth) }
 
     init() {}
 
@@ -37,6 +45,9 @@ struct LauncherSettings: Codable, Equatable {
         tvVolume = try c.decodeIfPresent(Bool.self, forKey: .tvVolume) ?? d.tvVolume
         keyboard = try c.decodeIfPresent(Bool.self, forKey: .keyboard) ?? d.keyboard
         keyboardLayout = try c.decodeIfPresent(KeyboardLayout.self, forKey: .keyboardLayout) ?? d.keyboardLayout
+        sleepDim = try c.decodeIfPresent(Double.self, forKey: .sleepDim) ?? d.sleepDim
+        sleepWarmth = try c.decodeIfPresent(Double.self, forKey: .sleepWarmth) ?? d.sleepWarmth
+        sleepInControlCenter = try c.decodeIfPresent(Bool.self, forKey: .sleepInControlCenter) ?? d.sleepInControlCenter
     }
 
     /// Adds built-ins that came with a newer build, each after its predecessor in the default order.

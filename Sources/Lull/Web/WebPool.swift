@@ -19,6 +19,8 @@ final class WebPool: NSObject {
     private(set) var views: [String: WKWebView] = [:]
     var extensions: Extensions?
     var onReport: ((_ serviceID: String, _ key: String, _ value: String) -> Void)?
+    /// A service's page finished loading, or failed to.
+    var onLoaded: ((_ serviceID: String) -> Void)?
     /// Text field focus and value changes from `Scripts.keyboard`, plus "reset" when a page navigates.
     var onKeyboard: ((_ serviceID: String, _ message: [String: Any]) -> Void)?
     private var mediaVolume = (level: 1.0, muted: false)
@@ -65,7 +67,25 @@ final class WebPool: NSObject {
     }
 
     func pause(_ s: Service) { views[s.id]?.evaluateJavaScript(Scripts.pause) }
+
+    /// Plays or pauses what the service is playing.
+    func togglePlayback(_ s: Service) {
+        guard let wv = views[s.id] else { return }
+        let script = ServiceModules.module(for: s).playPauseScript ?? Scripts.playPause
+        wv.evaluateJavaScript(script) { [weak self] result, _ in
+            self?.onReport?(s.id, "play/pause", "\(result ?? "error")")
+        }
+    }
+
     func reload(_ s: Service) { views[s.id]?.reload() }
+
+    /// A picture of the page as it is now, for the app switcher. Nil if it isn't on screen.
+    func snapshot(_ s: Service, width: CGFloat = 720, then done: @escaping (NSImage?) -> Void) {
+        guard let wv = views[s.id], wv.window != nil else { return done(nil) }
+        let config = WKSnapshotConfiguration()
+        config.snapshotWidth = NSNumber(value: Double(width))
+        wv.takeSnapshot(with: config) { image, _ in done(image) }
+    }
 
     /// Lull's own volume for page media, for outputs whose volume can't be changed otherwise.
     func setMediaVolume(_ level: Double, muted: Bool) {
