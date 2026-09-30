@@ -1,4 +1,4 @@
-> **Early.** Version 0.2, built around one setup: a Mac on an LG TV with a Siri Remote (USB-C, 2022). There are no releases, so you build it yourself. The site-specific parts (Netflix navigation, YouTube's TV mode) depend on those sites' markup and can break when it changes.
+> **Early.** Version 0.2, built around one setup: a MacBook on a TV, run with a Siri Remote (USB-C, 2022). There are no releases, so you build it yourself. The site-specific parts (Netflix navigation, YouTube's TV mode) depend on those sites' markup and can break when it changes.
 
 <div align="center">
   <br>
@@ -21,6 +21,14 @@ Lazybones turns a Mac connected to a TV into something you run from the couch wi
 - 🧪 A debug overlay showing what each page reports about DRM, codecs and HDR, and an on-screen remote so you can develop without the hardware
 
 Built-in apps: YouTube, Netflix, Disney+, Prime Video, HBO Max, Spotify, Plex, Jellyfin and Emby. Two test pages (DRM, ad blocking) sit alongside them for development. You can add any other site in Settings.
+
+## Why
+
+For travelling. At home it's the Apple TV; on the road it's a MacBook and a hotel TV. The laptop and the Apple TV remote are easy to pack, and together they get close enough to the couch: plug in, lie back, use the remote.
+
+### Why "Lazybones"
+
+Lazy Bones was Zenith's 1950 remote, the first TV remote control.
 
 ## Status
 
@@ -45,8 +53,9 @@ Built-in apps: YouTube, Netflix, Disney+, Prime Video, HBO Max, Spotify, Plex, J
 
 - macOS 15.4 or later
 - Xcode with Swift 6 (the package uses the Swift 5 language mode)
-- A Siri Remote (USB-C, 2022), or the on-screen remote
-- Optional: an LG webOS TV on the same network
+- A Siri Remote (USB-C, 2022), the Apple TV remote, or the on-screen remote
+- A TV or display on HDMI
+- Optional: an LG webOS TV on the same network, for controlling its volume and power
 
 ## Build and run
 
