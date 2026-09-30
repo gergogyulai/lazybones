@@ -53,7 +53,7 @@ public final class NetworkMonitor {
             let info = Self.info(for: path)
             DispatchQueue.main.async { self?.onChange?(info) }
         }
-        monitor.start(queue: DispatchQueue(label: "lull.network"))
+        monitor.start(queue: DispatchQueue(label: "lazybones.network"))
     }
 
     /// Re-reads Wi-Fi details, which NWPathMonitor doesn't report changes for.

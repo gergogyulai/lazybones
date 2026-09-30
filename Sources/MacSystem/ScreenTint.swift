@@ -3,7 +3,7 @@ import CoreGraphics
 
 /// Dims the displays and filters blue light by scaling their gamma tables, the way Night Shift and
 /// f.lux do. Unlike an overlay it covers everything on screen, video included, and black stays
-/// black. It affects every display, not just Lull's. macOS puts the tables back when the process
+/// black. It affects every display, not just Lazybones's. macOS puts the tables back when the process
 /// exits; `restore()` does it sooner.
 @MainActor
 public final class ScreenTint {

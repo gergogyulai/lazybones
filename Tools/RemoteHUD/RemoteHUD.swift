@@ -1,5 +1,5 @@
 // RemoteHUD: floating window showing live Apple TV remote HID inputs. A standalone development
-// tool for finding out what the remote sends; not part of the Lull app.
+// tool for finding out what the remote sends; not part of the Lazybones app.
 // Build: swiftc -O -parse-as-library RemoteHUD.swift -o RemoteHUD
 
 import SwiftUI

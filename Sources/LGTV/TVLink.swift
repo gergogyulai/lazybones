@@ -1,7 +1,7 @@
 import Foundation
 
 /// Control of an LG webOS TV over its LAN API (SSAP over WebSocket, the protocol LG's own phone
-/// app uses). Macs can't send HDMI-CEC, so this is how Lull reaches the TV's volume, which also
+/// app uses). Macs can't send HDMI-CEC, so this is how Lazybones reaches the TV's volume, which also
 /// drives an ARC soundbar, and its power.
 @MainActor
 public final class TVLink: ObservableObject {

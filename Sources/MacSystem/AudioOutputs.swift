@@ -2,7 +2,7 @@ import CoreAudio
 import Foundation
 
 /// Output devices from CoreAudio. Web views play through the system default output,
-/// so switching the default is how Lull's audio gets routed.
+/// so switching the default is how Lazybones's audio gets routed.
 public enum AudioOutputs {
     public struct Device: Identifiable, Equatable, Sendable {
         public let id: AudioDeviceID

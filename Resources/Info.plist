@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleExecutable</key><string>Lull</string>
-    <!-- Unchanged from the prototype, so existing settings and TV pairing carry over. -->
+    <key>CFBundleExecutable</key><string>Lazybones</string>
+    <!-- Left over from the prototype (Lull, then Spike) so existing settings and TV pairing carry over. -->
     <key>CFBundleIdentifier</key><string>dev.lull.spike</string>
-    <key>CFBundleName</key><string>Lull</string>
+    <key>CFBundleName</key><string>Lazybones</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>0.2.0</string>
     <key>CFBundleVersion</key><string>2</string>
@@ -20,7 +20,7 @@
 
     <!-- Finding and controlling an LG TV on the local network. -->
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Lull finds your LG TV on the network to control its volume and power.</string>
+    <string>Lazybones finds your LG TV on the network to control its volume and power.</string>
     <key>NSBonjourServices</key>
     <array><string>_airplay._tcp</string></array>
 </dict>
