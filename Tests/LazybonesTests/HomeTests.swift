@@ -301,10 +301,13 @@ final class SettingsScreenTests: XCTestCase {
 /// The app's decisions about what a button press means, with no hardware and no saved settings.
 @MainActor
 final class AppModelTests: XCTestCase {
+    private var played: [UISound] = []
+
     private func model(_ settings: LauncherSettings = LauncherSettings()) -> AppModel {
         let store = SettingsStore(defaults: UserDefaults(suiteName: "lazybones.tests.\(UUID())")!)
         store.save(settings)
-        return AppModel(options: LaunchOptions(arguments: ["--no-ext"]), store: store, startsRemote: false)
+        let sounds = UISounds { [unowned self] in played.append($0) }
+        return AppModel(options: LaunchOptions(arguments: ["--no-ext"]), store: store, startsRemote: false, sounds: sounds)
     }
 
     private func press(_ m: AppModel, _ c: RemoteCommand) {
@@ -341,6 +344,80 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(m.selected, 4, "the end of the first row, not the next row")
         for _ in 0..<20 { press(m, .down) }
         XCTAssertEqual(m.selected, m.visible.count - 1, "down ends on the last row's app and stays there")
+    }
+
+    func testMovingFocusPlaysTheMoveSoundOnlyWhenItMoved() {
+        let m = model()
+        press(m, .left)
+        XCTAssertEqual(played, [], "already at the edge")
+        press(m, .right)
+        press(m, .down)
+        XCTAssertEqual(played, [.move, .move])
+    }
+
+    func testOpeningAScreenIsAPushAndGoingBackIsAPop() {
+        let m = model()
+        press(m, .up)
+        press(m, .select)
+        XCTAssertTrue(m.settingsScreen.isOpen)
+        XCTAssertEqual(played, [.move, .push], "a rising push, in place of the select sound")
+        press(m, .back)
+        XCTAssertEqual(played, [.move, .push, .pop])
+    }
+
+    func testGoingDeeperInsideSettingsIsAPushToo() {
+        let m = model()
+        m.openSettingsScreen()
+        played = []
+        press(m, .right)
+        XCTAssertFalse(m.settingsScreen.inSidebar)
+        press(m, .back)
+        XCTAssertEqual(played, [.push, .pop])
+    }
+
+    func testSelectingSomethingThatStaysPutPlaysTheSelectSound() {
+        let m = model()
+        m.openSettingsScreen(page: .homeScreen)
+        press(m, .right)
+        played = []
+        press(m, .down)
+        press(m, .select)
+        XCTAssertEqual(played, [.move, .select])
+    }
+
+    func testOverlaysPushPopAndMakeTheirOwnNavigationSounds() {
+        let m = model()
+        m.toggleControlCenter()
+        press(m, .right)
+        press(m, .down)
+        m.toggleControlCenter()
+        XCTAssertEqual(played, [.push, .move, .move, .pop])
+    }
+
+    func testSoundsFollowWhateverWayInTheUserTook() {
+        let m = model()
+        m.openSwitcher()
+        m.homePressed()
+        XCTAssertEqual(played, [.push, .pop])
+    }
+
+    func testNoSoundsWhenTurnedOff() {
+        var settings = LauncherSettings()
+        settings.navigationSounds = false
+        let m = model(settings)
+        press(m, .right)
+        press(m, .select)
+        XCTAssertEqual(played, [])
+    }
+
+    func testTogglingTheSettingTakesEffectAtOnce() {
+        let m = model()
+        m.settings.navigationSounds = false
+        press(m, .right)
+        XCTAssertEqual(played, [])
+        m.settings.navigationSounds = true
+        press(m, .right)
+        XCTAssertEqual(played, [.move])
     }
 
     func testEdgeMovesStillTiltTheIconButHeldOnesDont() {

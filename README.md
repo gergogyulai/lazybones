@@ -17,6 +17,7 @@ Lazybones turns a Mac connected to a TV into something you run from the couch wi
 - 🔊 Volume routing: a volume press changes the Mac, an LG TV (and the soundbar on its ARC port), or the page's own media volume, whichever can actually do it
 - 🛡️ Ads blocked with uBlock Origin Lite, loaded into the web views
 - 🌙 Sleep Mode: dims the screen and filters blue light for every display and every app, video included
+- 🔈 Navigation sounds, synthesized in code: a warm low "dum" when focus moves, and a "dum-hit" with a brighter, higher note on top when you select (switch them off in Settings > General)
 - 🎛️ Control Center (hold the TV button): home, sleep, volume, output and network
 - 🧪 A debug overlay showing what each page reports about DRM, codecs and HDR, and an on-screen remote so you can develop without the hardware
 
@@ -144,7 +145,7 @@ Three leaf modules know nothing about each other or the app. `Lazybones` is wher
 | `Web/` | One persistent web view per service: `WebPool`, injected page scripts, the ad blocker extension. |
 | `Keyboard/` | On-screen keyboard: state, key layout, the view, and `KeyboardBridge` to the page's field. |
 | `ControlCenter/` | The overlay for home, sleep, volume, output and network. |
-| `Audio/` | `VolumeRouter` picks what a volume press changes; `VolumeController` applies it and shows the HUD. |
+| `Audio/` | `VolumeRouter` picks what a volume press changes; `VolumeController` applies it and shows the HUD. `SoundSynth` builds the navigation sounds in code and `UISounds` plays them. |
 | `Settings/` | `LauncherSettings` (the model), `SettingsStore` (persistence), the Settings window and the remote-driven Settings screen. |
 | `Debug/` | The event log and the debug overlay. |
 | `Simulator/` | The on-screen remote for development. |

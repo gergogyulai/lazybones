@@ -7,6 +7,7 @@ struct GeneralSettings: View {
         Form {
             Section {
                 Toggle("Open in full screen", isOn: $model.settings.startFullScreen)
+                Toggle("Play navigation sounds", isOn: $model.settings.navigationSounds)
                 Toggle("Show debug overlay at launch", isOn: $model.settings.showDebugOnLaunch)
             }
             Section {

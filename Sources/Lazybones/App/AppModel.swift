@@ -52,6 +52,7 @@ final class AppModel: ObservableObject {
     let switcher = AppSwitcher()
     let settingsScreen = SettingsScreen()
     let tint = ScreenTint()
+    let sounds: UISounds
     let diagnostics: Diagnostics
     let volume: VolumeController
     let controlCenter: ControlCenter
@@ -84,9 +85,11 @@ final class AppModel: ObservableObject {
     /// The music service Play/Pause controls from the Home Screen.
     private var audioServiceID: String?
     private var lastPointer = NSEvent.mouseLocation
+    private var makingSounds = false
 
-    /// `store` and `startsRemote` are for tests, which mustn't touch the user's settings or the remote.
-    init(options: LaunchOptions = .current, store: SettingsStore = SettingsStore(), startsRemote: Bool = true) {
+    /// `store`, `startsRemote` and `sounds` are for tests, which mustn't touch the user's settings, the remote or the speakers.
+    init(options: LaunchOptions = .current, store: SettingsStore = SettingsStore(), startsRemote: Bool = true,
+         sounds: UISounds? = nil) {
         let settings = store.load()
         let diagnostics = Diagnostics(visible: settings.showDebugOnLaunch, echoToStdout: options.log)
         let router = VolumeRouter(tv: tv) { [web] level, muted in web.setMediaVolume(level, muted: muted) }
@@ -97,6 +100,7 @@ final class AppModel: ObservableObject {
         self.startsRemote = startsRemote
         self.settings = settings
         self.diagnostics = diagnostics
+        self.sounds = sounds ?? UISounds()
         self.volume = VolumeController(router: router)
         self.controlCenter = ControlCenter(audio: router, tv: tv)
 
@@ -151,6 +155,7 @@ final class AppModel: ObservableObject {
         tv.configure(settings.tv)
         keyboard.layout = settings.keyboardLayout
         volume.router.usesTV = settings.tvVolume
+        sounds.isEnabled = settings.navigationSounds
     }
 
     private func launch() {
@@ -165,6 +170,7 @@ final class AppModel: ObservableObject {
             if let initial { open(initial) }
         }
         if startsRemote { remote.start() }
+        sounds.prepare()
         if options.remote { DispatchQueue.main.async { self.simulator.show() } }
     }
 
@@ -176,6 +182,10 @@ final class AppModel: ObservableObject {
     /// `simulated` events come from the on-screen remote, which macOS never acts on itself.
     func handle(_ event: RemoteEvent, simulated: Bool = false) {
         diagnostics.log("\(simulated ? "sim " : "")\(event.source) \(event.command)")
+        withSounds(for: event.command) { route(event, simulated: simulated) }
+    }
+
+    private func route(_ event: RemoteEvent, simulated: Bool) {
         let command = event.command
         if (command == .home && event.source == .hold) || command == .power {
             toggleControlCenter()
@@ -222,6 +232,58 @@ final class AppModel: ObservableObject {
         return false
     }
 
+    // MARK: Sounds
+
+    /// Where navigation stood before a command, when the command is one the launcher itself acts
+    /// on. Comparing it afterwards tells whether focus moved, without each screen reporting that.
+    private struct Focus: Equatable {
+        var grid: GridFocus
+        var settings: LauncherSettings
+        var control: ControlCenter.Item
+        var output: Int
+        var outputExpanded: Bool
+        var page: SettingsScreen.Page
+        var row: Int
+        var inSidebar: Bool
+        var switcher: Int
+    }
+
+    private var navigationFocus: Focus {
+        Focus(grid: focus, settings: settings, control: controlCenter.focus, output: controlCenter.outputFocus,
+              outputExpanded: controlCenter.outputExpanded, page: settingsScreen.page, row: settingsScreen.row,
+              inSidebar: settingsScreen.inSidebar, switcher: switcher.focus)
+    }
+
+    /// How many levels deep the user is: an open app, each overlay, and a level inside Settings or
+    /// Control Center's output list. Going deeper is a push, coming back out is a pop.
+    private var depth: Int {
+        (active != nil ? 1 : 0) + (controlCenter.isOpen ? 1 : 0) + (switcher.isOpen ? 1 : 0)
+            + (settingsScreen.isOpen ? (settingsScreen.inSidebar ? 1 : 2) : 0) + (controlCenter.outputExpanded ? 1 : 0)
+    }
+
+    /// Runs something the user did and plays the sound it earned: a rising push or falling pop if
+    /// it changed how deep they are, else a "dum-hit" for a selection, else a "dum" if focus moved.
+    /// Every way in goes through here, and the outermost call decides.
+    private func withSounds(for command: RemoteCommand? = nil, _ action: () -> Void) {
+        guard !makingSounds else { return action() }
+        makingSounds = true
+        defer { makingSounds = false }
+        let depthBefore = depth
+        // Moving and selecting are for the launcher and its overlays; a page makes its own noise.
+        let focusBefore = (command?.isDirection == true || command == .select) && (active == nil || overlayOpen)
+            ? navigationFocus : nil
+        action()
+        if depth != depthBefore {
+            sounds.play(depth > depthBefore ? .push : .pop)
+        } else if let focusBefore {
+            if command == .select {
+                sounds.play(.select)
+            } else if focusBefore != navigationFocus {
+                sounds.play(.move)
+            }
+        }
+    }
+
     private var overlayOpen: Bool { controlCenter.isOpen || settingsScreen.isOpen || switcher.isOpen }
 
     private func changeVolume(_ step: VolumeController.Step, simulated: Bool) {
@@ -232,7 +294,9 @@ final class AppModel: ObservableObject {
     // MARK: Home button
 
     /// A click of the TV button: Home, and on a second click straight after, the app switcher.
-    func homePressed() {
+    func homePressed() { withSounds { pressHome() } }
+
+    private func pressHome() {
         if switcher.isOpen {
             switcher.close()
             homeClicks.reset()
@@ -291,8 +355,10 @@ final class AppModel: ObservableObject {
     /// A click on an app.
     func click(app i: Int) {
         guard visible.indices.contains(i) else { return }
-        focus.select(i, columns: columns)
-        open(visible[i])
+        withSounds {
+            focus.select(i, columns: columns)
+            open(visible[i])
+        }
     }
 
     private func launcherKey(_ ev: NSEvent) -> Bool {
@@ -302,7 +368,9 @@ final class AppModel: ObservableObject {
         else { return false }
         let map: [UInt16: RemoteCommand] = [123: .left, 124: .right, 125: .down, 126: .up, 36: .select, 53: .back]
         guard let command = map[ev.keyCode] else { return false }
-        if !overlayHandle(command) { navigate(command, repeating: ev.isARepeat) }
+        withSounds(for: command) {
+            if !overlayHandle(command) { navigate(command, repeating: ev.isARepeat) }
+        }
         return true
     }
 
@@ -373,7 +441,7 @@ final class AppModel: ObservableObject {
     private func back(in s: Service) {
         web.back(from: s) { [weak self] handled in
             guard let self, !handled, active?.id == s.id else { return }
-            goHome()
+            withSounds { self.goHome() }
         }
     }
 
@@ -413,11 +481,13 @@ final class AppModel: ObservableObject {
     // MARK: App switcher
 
     func openSwitcher() {
-        if controlCenter.isOpen { controlCenter.close() }
-        if settingsScreen.isOpen { settingsScreen.close() }
-        let apps = recents.ids.compactMap { id in settings.services.first { $0.id == id } }
-            .filter { web.views[$0.id] != nil }
-        switcher.open(apps)
+        withSounds {
+            if controlCenter.isOpen { controlCenter.close() }
+            if settingsScreen.isOpen { settingsScreen.close() }
+            let apps = recents.ids.compactMap { id in settings.services.first { $0.id == id } }
+                .filter { web.views[$0.id] != nil }
+            switcher.open(apps)
+        }
     }
 
     func perform(_ action: AppSwitcher.Action) {
@@ -435,11 +505,13 @@ final class AppModel: ObservableObject {
     // MARK: Control Center
 
     func toggleControlCenter() {
-        if controlCenter.isOpen {
-            controlCenter.close()
-        } else {
-            controlCenter.open(canReload: active != nil, showsSleepMode: settings.sleepInControlCenter,
-                               sleepModeOn: sleepMode)
+        withSounds {
+            if controlCenter.isOpen {
+                controlCenter.close()
+            } else {
+                controlCenter.open(canReload: active != nil, showsSleepMode: settings.sleepInControlCenter,
+                                   sleepModeOn: sleepMode)
+            }
         }
     }
 
@@ -465,9 +537,11 @@ final class AppModel: ObservableObject {
     // MARK: Settings
 
     func openSettingsScreen(page: SettingsScreen.Page? = nil) {
-        if controlCenter.isOpen { controlCenter.close() }
-        if switcher.isOpen { switcher.close() }
-        settingsScreen.open(page: page)
+        withSounds {
+            if controlCenter.isOpen { controlCenter.close() }
+            if switcher.isOpen { switcher.close() }
+            settingsScreen.open(page: page)
+        }
     }
 
     /// Opens the Mac's Settings window (⌘,).

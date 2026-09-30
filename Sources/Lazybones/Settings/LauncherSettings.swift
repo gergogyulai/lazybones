@@ -12,6 +12,8 @@ struct LauncherSettings: Codable, Equatable {
     var showHints = true
     var showDebugOnLaunch = false
     var startFullScreen = true
+    /// Play a sound when focus moves and when a choice is made.
+    var navigationSounds = true
     var tv: TVConfig?
     /// Send volume to the paired TV when audio goes out over HDMI.
     var tvVolume = true
@@ -44,6 +46,7 @@ struct LauncherSettings: Codable, Equatable {
         showHints = try c.decodeIfPresent(Bool.self, forKey: .showHints) ?? d.showHints
         showDebugOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .showDebugOnLaunch) ?? d.showDebugOnLaunch
         startFullScreen = try c.decodeIfPresent(Bool.self, forKey: .startFullScreen) ?? d.startFullScreen
+        navigationSounds = try c.decodeIfPresent(Bool.self, forKey: .navigationSounds) ?? d.navigationSounds
         tv = try c.decodeIfPresent(TVConfig.self, forKey: .tv)
         tvVolume = try c.decodeIfPresent(Bool.self, forKey: .tvVolume) ?? d.tvVolume
         keyboard = try c.decodeIfPresent(Bool.self, forKey: .keyboard) ?? d.keyboard
