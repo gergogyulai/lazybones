@@ -8,8 +8,8 @@ import SwiftUI
 /// panel come back to AppModel as an `Action`.
 @MainActor
 final class ControlCenter: ObservableObject {
-    enum Item: Hashable { case home, displayOff, tvOff, volume, output, reload, sleepMode, debug, settings }
-    enum Action { case close, home, displayOff, tvOff, reload, toggleSleepMode, toggleDebug, settings }
+    enum Item: Hashable { case home, displayOff, tvOff, quit, volume, output, reload, sleepMode, debug, settings }
+    enum Action { case close, home, displayOff, tvOff, quit, reload, toggleSleepMode, toggleDebug, settings }
 
     @Published var isOpen = false
     @Published var focus = Item.home
@@ -25,6 +25,8 @@ final class ControlCenter: ObservableObject {
     /// Whether the Sleep Mode tile is shown (a setting), and whether Sleep Mode is on.
     @Published var showsSleepMode = false
     @Published var sleepModeOn = false
+    /// Quit was clicked once and waits for a second click, so a stray click can't close the app.
+    @Published private(set) var confirmingQuit = false
 
     private let audio: VolumeRouter
     private let tv: TVLink
@@ -38,7 +40,7 @@ final class ControlCenter: ObservableObject {
     }
 
     var rows: [[Item]] {
-        [tv.status == .connected ? [.home, .displayOff, .tvOff] : [.home, .displayOff],
+        [[.home, .displayOff] + (tv.status == .connected ? [.tvOff] : []) + [.quit],
          [.volume], [.output],
          (canReload ? [.reload] : []) + (showsSleepMode ? [.sleepMode] : []) + [.debug, .settings]]
     }
@@ -49,6 +51,7 @@ final class ControlCenter: ObservableObject {
         self.sleepModeOn = sleepModeOn
         focus = .home
         outputExpanded = false
+        confirmingQuit = false
         refresh()
         withAnimation(.spring(duration: 0.4, bounce: 0.15)) { isOpen = true }
     }
@@ -66,6 +69,8 @@ final class ControlCenter: ObservableObject {
     }
 
     func handle(_ command: RemoteCommand) -> Action? {
+        // Anything but the second click on Quit, and it's forgotten.
+        if !(command == .select && focus == .quit) { confirmingQuit = false }
         if outputExpanded { return handleOutputList(command) }
         guard let r = rows.firstIndex(where: { $0.contains(focus) }), let c = rows[r].firstIndex(of: focus) else {
             focus = .home
@@ -101,6 +106,13 @@ final class ControlCenter: ObservableObject {
         case .home: return .home
         case .displayOff: return .displayOff
         case .tvOff: return .tvOff
+        case .quit:
+            if confirmingQuit { return .quit }
+            confirmingQuit = true
+            Task { [weak self] in
+                try? await Task.sleep(for: .seconds(3))
+                self?.confirmingQuit = false
+            }
         case .reload: return .reload
         case .sleepMode: return .toggleSleepMode
         case .debug: return .toggleDebug

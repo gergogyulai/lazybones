@@ -8,7 +8,7 @@ struct WebContainer: NSViewRepresentable {
     var takesFocus = true
 
     func makeNSView(context: Context) -> NSView {
-        let host = NSView()
+        let host = WebHostView()
         attach(to: host)
         return host
     }
@@ -30,4 +30,12 @@ struct WebContainer: NSViewRepresentable {
         host.addSubview(webView)
         if takesFocus { DispatchQueue.main.async { webView.window?.makeFirstResponder(webView) } }
     }
+}
+
+/// The web view's parent in the responder chain. A key the page ignores travels up it, and an Escape
+/// nobody handles reaches the window, which macOS takes to mean "leave full screen". Back sends the
+/// page an Escape, so pages that don't use it (a YouTube account picker) would drop Lull out of full
+/// screen. Handling it here, and doing nothing, stops that.
+final class WebHostView: NSView {
+    override func cancelOperation(_ sender: Any?) {}
 }

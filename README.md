@@ -36,8 +36,9 @@ remote: apps shown and their order, layout, Sleep Mode, keyboard, TV. Settings o
 the same plus what needs a keyboard: app names, addresses and colors, and TV pairing by address.
 
 **Sleep Mode** dims the screen and filters blue light by scaling the display's gamma tables (like
-Night Shift), so it covers video too. Switch it on in either Settings, or turn on "Show in Control
-Center" there for a tile. It turns off when Lull quits.
+Night Shift), so it covers video too. It applies to every display and every app, not just Lull.
+Switch it on in either Settings, or turn on "Show in Control Center" there for a tile. It turns off
+when Lull quits.
 
 ### Launch options
 
@@ -81,11 +82,14 @@ Three leaf modules know nothing about each other or the app. `Lull` is where the
 
 ## Adding a service
 
-Create `Sources/Lull/Services/<Name>/<Name>.swift` with a `ServiceModule` (see `Netflix.swift` for the
+Create `Sources/Lull/Services/<Name>/<Name>.swift` with a `ServiceModule` (see `DisneyPlus.swift` for the
 smallest one), then add it to `ServiceModules.builtIn`. A module can add scripts, CSS and WebKit
 tweaks that apply to its own web view only. Saved settings pick up new built-ins automatically.
 A music service sets `pausesInBackground = false` (see `Spotify.swift`) so it keeps playing behind
-the Home Screen.
+the Home Screen. A site the shared remote navigation fits badly can supply its own as
+`spatialNavScript`, which replaces it under the same setting; `NetflixNavigation.swift` moves through
+rows, sliders and the details panel like the TV app, and publishes `window.__lullBack` so Back closes
+what Select opened before it leaves the page.
 
 ## Tools
 

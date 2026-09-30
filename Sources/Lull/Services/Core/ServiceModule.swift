@@ -11,6 +11,10 @@ protocol ServiceModule: Sendable {
     /// The site does its own remote/keyboard navigation, so Lull's spatial navigation is never
     /// added, whatever the saved setting says.
     var handlesNavigation: Bool { get }
+    /// Remote navigation written for this site, for when the shared one (`Scripts.spatialNav`) fits it
+    /// badly. It takes the shared one's place, under the same setting, and should publish
+    /// `window.__lullBack` if Back means more than "previous page" there (see `Scripts.pageBack`).
+    var spatialNavScript: String? { get }
     /// Page scripts, injected after the shared ones in `Scripts`.
     var scripts: [PageScript] { get }
     /// CSS added to every page, e.g. to hide banners that make no sense on a TV.
@@ -31,6 +35,7 @@ protocol ServiceModule: Sendable {
 
 extension ServiceModule {
     var handlesNavigation: Bool { false }
+    var spatialNavScript: String? { nil }
     var scripts: [PageScript] { [] }
     var styles: [String] { [] }
     var pausesInBackground: Bool { true }

@@ -15,13 +15,12 @@ struct RootView: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
-            if !model.launcherHidden {
-                // Recedes as a service opens over it, and comes back as it closes.
-                LauncherView()
-                    .scaleEffect(model.zoomed ? 1.08 : 1)
-                    .opacity(model.zoomed ? 0 : 1)
-                    .transition(.opacity.combined(with: .scale(scale: 1.08)))
-            }
+            // Always there, fully transparent while an app is open, so it doesn't have to be built
+            // (its shelf art is a big blur) at the moment an exit animation starts.
+            LauncherView()
+                .scaleEffect(model.zoomed ? 1.08 : 1)
+                .opacity(model.zoomed ? 0 : 1)
+                .allowsHitTesting(model.active == nil)
             ForEach(model.mounted) { s in
                 if let wv = model.web.views[s.id] {
                     ServiceLayer(service: s, webView: wv)

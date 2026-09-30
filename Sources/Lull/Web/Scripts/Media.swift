@@ -46,6 +46,11 @@ extension Scripts {
 
     static let exitFullscreen = "document.exitFullscreen ? document.exitFullscreen() : document.webkitExitFullscreen && document.webkitExitFullscreen()"
 
+    /// Back in an ordinary page first asks its navigation script, if it published `__lullBack`, to
+    /// close whatever it opened (a details panel, a menu). True means it did; otherwise Back goes to
+    /// the previous page.
+    static let pageBack = "window.__lullBack ? window.__lullBack() === true : false"
+
     /// Back is pressed in a page that handles it itself. These two bracket the key press and answer
     /// whether the page reacted (a menu opened or closed, a route changed, fullscreen toggled), so a
     /// Back the page ignores can take you Home instead of doing nothing.

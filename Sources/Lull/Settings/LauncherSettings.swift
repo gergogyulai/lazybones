@@ -18,13 +18,16 @@ struct LauncherSettings: Codable, Equatable {
     /// Show the on-screen keyboard when a text field in a page is focused.
     var keyboard = true
     var keyboardLayout = KeyboardLayout.abc
-    /// Sleep Mode: how far it dims the screen (0...0.8) and how much blue light it filters (0...1).
+    /// Sleep Mode: how far it dims the screen (0...`maxSleepDim`) and how much blue light it filters (0...1).
     var sleepDim = 0.4
     var sleepWarmth = 0.6
     /// Put a Sleep Mode tile in Control Center.
     var sleepInControlCenter = false
 
     var visibleServices: [Service] { services.filter { !hidden.contains($0.id) } }
+
+    /// The darkest Sleep Mode goes: about a seventh of normal brightness.
+    static let maxSleepDim = 0.9
 
     var sleepLevel: ScreenTint.Level { ScreenTint.Level(dim: sleepDim, warmth: sleepWarmth) }
 

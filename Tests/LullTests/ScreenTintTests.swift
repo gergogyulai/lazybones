@@ -9,11 +9,12 @@ final class ScreenTintTests: XCTestCase {
         XCTAssertEqual(g.blue, 1)
     }
 
-    func testFilteringBlueLightCutsBlueMostAndGreenALittle() {
+    func testFilteringBlueLightCutsBlueMostAndGreenSomeAndLeavesRed() {
         let g = ScreenTint.Level(dim: 0, warmth: 1).gains
         XCTAssertEqual(g.red, 1)
         XCTAssertLessThan(g.green, 1)
         XCTAssertLessThan(g.blue, g.green)
+        XCTAssertLessThan(g.blue, 0.3, "a strong filter, near candlelight")
     }
 
     func testDimmingScalesAllChannelsEqually() {
@@ -23,10 +24,12 @@ final class ScreenTintTests: XCTestCase {
         XCTAssertLessThan(g.red, 1)
     }
 
-    func testTheScreenNeverGoesBlack() {
+    func testTheStrongestDimIsVeryDarkButNeverBlack() {
+        let strongest = ScreenTint.Level(dim: 0.9, warmth: 0).gains
+        XCTAssertLessThan(strongest.red, 0.2, "stronger than before")
         let g = ScreenTint.Level(dim: 1, warmth: 1).gains
-        XCTAssertGreaterThan(g.blue, 0.03)
-        XCTAssertGreaterThan(g.red, 0.1)
+        XCTAssertGreaterThan(g.blue, 0.005)
+        XCTAssertGreaterThan(g.red, 0.04)
     }
 
     func testOutOfRangeLevelsAreClamped() {

@@ -1,3 +1,4 @@
+import LGTV
 import SiriRemote
 import XCTest
 @testable import Lull
@@ -411,7 +412,7 @@ final class AppModelTests: XCTestCase {
         let m = model()
         let dim = m.settingsRows(for: .sleepMode).first { $0.id == "dim" }!
         for _ in 0..<20 { dim.adjust?(1) }
-        XCTAssertEqual(m.settings.sleepDim, 0.8, accuracy: 0.001, "capped so the screen never goes black")
+        XCTAssertEqual(m.settings.sleepDim, LauncherSettings.maxSleepDim, accuracy: 0.001, "capped so the screen never goes black")
         let warmth = m.settingsRows(for: .sleepMode).first { $0.id == "warmth" }!
         for _ in 0..<20 { warmth.adjust?(-1) }
         XCTAssertEqual(m.settings.sleepWarmth, 0, accuracy: 0.001)
@@ -429,5 +430,50 @@ final class AppModelTests: XCTestCase {
         for _ in 0..<4 { press(m, .right) }
         m.settings.hidden = Set(m.settings.services.dropFirst(2).map(\.id))
         XCTAssertEqual(m.selected, 1)
+    }
+}
+
+
+@MainActor
+final class ControlCenterQuitTests: XCTestCase {
+    private func controlCenter() -> ControlCenter {
+        let tv = TVLink()
+        return ControlCenter(audio: VolumeRouter(tv: tv) { _, _ in }, tv: tv)
+    }
+
+    private func focusQuit(_ cc: ControlCenter) {
+        cc.focus = .home
+        while cc.focus != .quit { _ = cc.handle(.right) }
+    }
+
+    func testQuitIsOnTheTopRowAfterTheOtherTiles() {
+        let cc = controlCenter()
+        XCTAssertEqual(cc.rows[0], [.home, .displayOff, .quit])
+    }
+
+    func testQuitNeedsASecondClick() {
+        let cc = controlCenter()
+        focusQuit(cc)
+        XCTAssertNil(cc.handle(.select), "the first click only asks")
+        XCTAssertTrue(cc.confirmingQuit)
+        XCTAssertEqual(cc.handle(.select), .quit)
+    }
+
+    func testMovingAwayForgetsTheFirstClick() {
+        let cc = controlCenter()
+        focusQuit(cc)
+        _ = cc.handle(.select)
+        _ = cc.handle(.left)
+        XCTAssertFalse(cc.confirmingQuit)
+        _ = cc.handle(.right)
+        XCTAssertNil(cc.handle(.select), "asks again rather than quitting")
+    }
+
+    func testOpeningControlCenterStartsUnconfirmed() {
+        let cc = controlCenter()
+        focusQuit(cc)
+        _ = cc.handle(.select)
+        cc.open(canReload: false, showsSleepMode: false, sleepModeOn: false)
+        XCTAssertFalse(cc.confirmingQuit)
     }
 }

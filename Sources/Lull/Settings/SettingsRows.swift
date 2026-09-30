@@ -46,9 +46,9 @@ extension AppModel {
         [
             SettingsRow(id: "sleep", title: "Sleep Mode", detail: "Dims the screen and filters blue light",
                         style: .toggle(sleepMode), activate: { [unowned self] in toggleSleepMode() }),
-            SettingsRow(id: "dim", title: "Dimming", style: .slider(settings.sleepDim / 0.8, label: percent(settings.sleepDim)),
+            SettingsRow(id: "dim", title: "Dimming", style: .slider(settings.sleepDim / LauncherSettings.maxSleepDim, label: percent(settings.sleepDim)),
                         adjust: { [unowned self] in
-                            settings.sleepDim = min(max((settings.sleepDim + Double($0) * 0.1).rounded(toPlaces: 1), 0), 0.8)
+                            settings.sleepDim = min(max((settings.sleepDim + Double($0) * 0.1).rounded(toPlaces: 1), 0), LauncherSettings.maxSleepDim)
                         }),
             SettingsRow(id: "warmth", title: "Blue Light Filter",
                         style: .slider(settings.sleepWarmth, label: percent(settings.sleepWarmth)),

@@ -27,8 +27,6 @@ final class AppModel: ObservableObject {
     @Published private(set) var presented: Service?
     /// Whether the presented service has zoomed out to fill the screen.
     @Published private(set) var zoomed = false
-    /// Once a service fills the screen the launcher behind it is taken off screen entirely.
-    @Published private(set) var launcherHidden = false
     /// Services whose first page hasn't loaded yet, which show a launch screen meanwhile.
     @Published private(set) var loading: Set<String> = []
     /// Services with media playing, per their pages.
@@ -328,16 +326,11 @@ final class AppModel: ObservableObject {
             presented = s
             zoomed = false
         }
-        launcherHidden = false
         diagnostics.log("open \(s.name)")
         // Let the icon-sized first frame render before growing out of it.
         DispatchQueue.main.async { [self] in
             guard presentation == token else { return }
-            withAnimation(Self.zoomIn, completionCriteria: .logicallyComplete) {
-                zoomed = true
-            } completion: { [self] in
-                if presentation == token { launcherHidden = true }
-            }
+            withAnimation(Self.zoomIn) { zoomed = true }
         }
     }
 
@@ -355,16 +348,20 @@ final class AppModel: ObservableObject {
         if ServiceModules.module(for: s).pausesInBackground { web.pause(s) }
         // While it's still on screen: what the app switcher will show.
         web.snapshot(s) { [weak self] in self?.switcher.setSnapshot($0, for: s.id) }
-        web.views[s.id]?.window?.makeFirstResponder(nil)
         active = nil
 
-        presentation += 1
-        let token = presentation
-        launcherHidden = false
-        withAnimation(Self.zoomOut, completionCriteria: .logicallyComplete) {
-            zoomed = false
-        } completion: { [self] in
-            if presentation == token { presented = nil }
+        // A page in its own full screen leaves it first, or the app would shrink out of sight
+        // behind that window.
+        web.leaveFullscreen(s) { [self] in
+            guard active == nil, presented?.id == s.id else { return }
+            web.views[s.id]?.window?.makeFirstResponder(nil)
+            presentation += 1
+            let token = presentation
+            withAnimation(Self.zoomOut, completionCriteria: .logicallyComplete) {
+                zoomed = false
+            } completion: { [self] in
+                if presentation == token { presented = nil }
+            }
         }
     }
 
@@ -461,6 +458,7 @@ final class AppModel: ObservableObject {
         case .settings: openSettingsScreen()
         case .tvOff: tv.turnOff()
         case .displayOff: SystemSleep.displays()
+        case .quit: NSApp.terminate(nil)
         }
     }
 
@@ -524,7 +522,6 @@ final class AppModel: ObservableObject {
             presentation += 1
             presented = nil
             zoomed = false
-            launcherHidden = false
         }
         playing.remove(id)
         loading.remove(id)

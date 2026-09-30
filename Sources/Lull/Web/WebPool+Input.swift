@@ -19,6 +19,20 @@ extension WebPool {
         }
     }
 
+    /// Leaves the page's own full-screen mode (a video's), if it's in it, and runs `done` once the
+    /// window is back. WebKit gives a full-screen page a window of its own, which would otherwise
+    /// stay over everything while the app shrinks away underneath it.
+    func leaveFullscreen(_ s: Service, then done: @escaping () -> Void) {
+        guard let wv = views[s.id], wv.fullscreenState != .notInFullscreen else { return done() }
+        wv.evaluateJavaScript(Scripts.exitFullscreen)
+        Task { @MainActor in
+            for _ in 0..<30 where wv.fullscreenState != .notInFullscreen {
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            done()
+        }
+    }
+
     /// Back inside a page. `done` says whether something took it; false means there was nowhere
     /// to go back to, and the caller should go Home.
     ///
@@ -31,9 +45,14 @@ extension WebPool {
             return done(true)
         }
         guard ServiceModules.module(for: s).handlesNavigation || s.agent == .tv else {
-            guard wv.canGoBack else { return done(false) }
-            wv.goBack()
-            return done(true)
+            // A page with its own navigation script gets to close what it opened first.
+            wv.evaluateJavaScript(Scripts.pageBack) { handled, _ in
+                if handled as? Bool == true { return done(true) }
+                guard wv.canGoBack else { return done(false) }
+                wv.goBack()
+                done(true)
+            }
+            return
         }
         wv.evaluateJavaScript(Scripts.watchStart) { [weak self] _, _ in
             self?.send(.back, to: s)

@@ -3,32 +3,33 @@ import CoreGraphics
 
 /// Dims the displays and filters blue light by scaling their gamma tables, the way Night Shift and
 /// f.lux do. Unlike an overlay it covers everything on screen, video included, and black stays
-/// black. macOS puts the tables back when the process exits; `restore()` does it sooner.
+/// black. It affects every display, not just Lull's. macOS puts the tables back when the process
+/// exits; `restore()` does it sooner.
 @MainActor
 public final class ScreenTint {
     public struct Level: Equatable, Sendable {
         /// How far to dim: 0 leaves brightness alone, 1 is as dark as the tables allow.
         public var dim: Double
-        /// How much blue to filter out: 0 is none, 1 is candlelight.
+        /// How much blue light to filter out: 0 is none, 1 is candlelight.
         public var warmth: Double
 
         public static let off = Level(dim: 0, warmth: 0)
 
-        /// Never darker than this, so the screen can always be found again.
-        static let floor = 0.12
+        /// Never darker than this fraction of full brightness, so the screen can always be found again.
+        static let floor = 0.05
 
         public init(dim: Double, warmth: Double) {
             self.dim = min(max(dim, 0), 1)
             self.warmth = min(max(warmth, 0), 1)
         }
 
-        /// Peak output per channel, 0...1. Blue is cut hardest and green a little, which is what
+        /// Peak output per channel, 0...1. Blue is cut hardest and green a fair bit, which is what
         /// shifts white toward amber.
         public var gains: (red: Float, green: Float, blue: Float) {
             let brightness = 1 - dim * (1 - Self.floor)
             return (Float(brightness),
-                    Float(brightness * (1 - 0.32 * warmth)),
-                    Float(brightness * (1 - 0.65 * warmth)))
+                    Float(brightness * (1 - 0.4 * warmth)),
+                    Float(brightness * (1 - 0.8 * warmth)))
         }
 
         func blended(to other: Level, _ t: Double) -> Level {

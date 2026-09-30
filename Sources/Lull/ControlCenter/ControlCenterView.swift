@@ -25,6 +25,8 @@ struct ControlCenterView: View {
                         smallTile(.home, "house.fill", "Home", u)
                         smallTile(.displayOff, "power", "Display Off", u)
                         if tv.status == .connected { smallTile(.tvOff, "tv", "Turn Off TV", u) }
+                        smallTile(.quit, "xmark.circle", cc.confirmingQuit ? "Confirm" : "Quit", u,
+                                  lit: cc.confirmingQuit, litColor: .red, litWhenFocused: true)
                     }
                     volumeTile(u)
                     outputTile(u)
@@ -81,12 +83,12 @@ struct ControlCenterView: View {
     }
 
     private func smallTile(_ item: ControlCenter.Item, _ symbol: String, _ label: String, _ u: CGFloat,
-                           lit: Bool = false) -> some View {
+                           lit: Bool = false, litColor: Color = .blue, litWhenFocused: Bool = false) -> some View {
         let focused = cc.focus == item && !cc.outputExpanded
         return VStack(alignment: .leading, spacing: 10 * u) {
             Image(systemName: symbol)
                 .font(.system(size: 30 * u, weight: .semibold))
-                .foregroundStyle(lit && !focused ? .blue : focused ? .black : .white)
+                .foregroundStyle(lit && (!focused || litWhenFocused) ? litColor : focused ? .black : .white)
             Text(label)
                 .font(.system(size: 19 * u, weight: .semibold))
                 .lineLimit(1)
