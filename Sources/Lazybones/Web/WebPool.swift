@@ -8,6 +8,8 @@ enum PageChannel {
     static let report = "lazybones"
     /// Text field focus and value changes, from `Scripts.keyboard`.
     static let keyboard = "lazybonesKeyboard"
+    /// `{ level, msg }` console messages and uncaught errors, from `Scripts.console`.
+    static let console = "lazybonesConsole"
 }
 
 /// One persistent WKWebView per service, so switching back resumes where you left off.
@@ -21,8 +23,16 @@ final class WebPool: NSObject {
     var onReport: ((_ serviceID: String, _ key: String, _ value: String) -> Void)?
     /// A service's page finished loading, or failed to.
     var onLoaded: ((_ serviceID: String) -> Void)?
+    /// A service's page couldn't be reached, for a reason worth showing.
+    var onFailed: ((_ serviceID: String, LoadFailure) -> Void)?
+    /// A service's page started showing a new document.
+    var onCommit: ((_ serviceID: String) -> Void)?
     /// Text field focus and value changes from `Scripts.keyboard`, plus "reset" when a page navigates.
     var onKeyboard: ((_ serviceID: String, _ message: [String: Any]) -> Void)?
+    /// Something a page wrote to its console, or an uncaught error (see `Scripts.console`).
+    var onConsole: ((_ serviceID: String, _ level: String, _ message: String) -> Void)?
+    /// Forward everything pages log, not just warnings and errors. Applies to web views made after it's set.
+    var forwardsAllConsole = false
     private var mediaVolume = (level: 1.0, muted: false)
 
     func view(for s: Service) -> WKWebView {
@@ -40,10 +50,11 @@ final class WebPool: NSObject {
         let ucc = config.userContentController
         ucc.add(self, name: PageChannel.report)
         ucc.add(self, name: PageChannel.keyboard)
+        ucc.add(self, name: PageChannel.console)
         let spatialNav = s.spatialNav && !module.handlesNavigation
         let ownNav = spatialNav ? module.spatialNavScript.map { [PageScript(source: $0, time: .start)] } : nil
         // The service's own hacks come last, and apply to its web view only.
-        for script in Scripts.shared(spatialNav: spatialNav && ownNav == nil) + (ownNav ?? [])
+        for script in Scripts.shared(spatialNav: spatialNav && ownNav == nil, pageLog: forwardsAllConsole) + (ownNav ?? [])
             + module.scripts + module.styles.map(PageScript.style) {
             ucc.addUserScript(script.userScript)
         }
@@ -81,6 +92,12 @@ final class WebPool: NSObject {
 
     func reload(_ s: Service) { views[s.id]?.reload() }
 
+    /// Loads again what failed to load, or the service's start page if that isn't known.
+    func retry(_ s: Service, _ failure: LoadFailure) {
+        let url = failure.url ?? ServiceModules.module(for: s).startURL(for: s)
+        views[s.id]?.load(URLRequest(url: url))
+    }
+
     /// A picture of the page as it is now, for the app switcher. Nil if it isn't on screen.
     func snapshot(_ s: Service, width: CGFloat = 720, then done: @escaping (NSImage?) -> Void) {
         guard let wv = views[s.id], wv.window != nil else { return done(nil) }
@@ -97,6 +114,30 @@ final class WebPool: NSObject {
 
     func applyMediaVolume(to wv: WKWebView) {
         wv.evaluateJavaScript("window.__lazybonesSetVolume && window.__lazybonesSetVolume(\(mediaVolume.level), \(mediaVolume.muted))")
+    }
+
+    /// Runs `js` in the service's page (as the body of an async function, so it can `await` and must
+    /// `return` what it wants back) and describes the result, for the debug window and `Scripts/ctl.sh`.
+    func evaluate(_ js: String, in id: String) async -> String {
+        guard let wv = views[id] else { return "error: \(id) has no page" }
+        // A bare expression is the common case; wrap it so it needn't say `return`.
+        let body = js.contains("return") || js.contains(";") || js.contains("\n") ? js : "return (\(js));"
+        do {
+            let result = try await wv.callAsyncJavaScript(body, contentWorld: .page)
+            return Self.describe(result)
+        } catch {
+            let info = (error as NSError).userInfo
+            return "error: \(info["WKJavaScriptExceptionMessage"] as? String ?? error.localizedDescription)"
+        }
+    }
+
+    private static func describe(_ value: Any?) -> String {
+        guard let value, !(value is NSNull) else { return "undefined" }
+        if let s = value as? String { return s }
+        if JSONSerialization.isValidJSONObject(value),
+           let data = try? JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes]),
+           let s = String(data: data, encoding: .utf8) { return s }
+        return "\(value)"
     }
 
     func serviceID(of wv: WKWebView) -> String? { views.first { $0.value === wv }?.key }
