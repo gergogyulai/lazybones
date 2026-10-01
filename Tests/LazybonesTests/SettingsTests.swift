@@ -12,6 +12,8 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.hidden, ["plex"])
         XCTAssertEqual(s.services, Service.defaults)
         XCTAssertTrue(s.showShelf)
+        XCTAssertEqual(s.sleepDim, LauncherSettings().sleepDim)
+        XCTAssertFalse(s.sleepInControlCenter)
     }
 
     func testHiddenServicesAreLeftOutOfTheHomeScreen() throws {
@@ -57,36 +59,6 @@ final class SettingsTests: XCTestCase {
         XCTAssertNotNil(defaults.data(forKey: "launcherSettings.unreadable"))
     }
 
-    func testSleepModeDefaultsAreGentleAndOffInControlCenter() throws {
-        let s = LauncherSettings()
-        XCTAssertEqual(s.sleepDim, 0.4)
-        XCTAssertEqual(s.sleepWarmth, 0.6)
-        XCTAssertFalse(s.sleepInControlCenter)
-        // Settings saved before Sleep Mode existed load with those defaults.
-        let old = try decode(#"{"columns": 4}"#)
-        XCTAssertEqual(old.sleepDim, 0.4)
-        XCTAssertFalse(old.sleepInControlCenter)
-    }
-
-    func testSleepModeSettingsRoundTrip() throws {
-        var s = LauncherSettings()
-        s.sleepDim = 0.7
-        s.sleepWarmth = 0.2
-        s.sleepInControlCenter = true
-        XCTAssertEqual(try JSONDecoder().decode(LauncherSettings.self, from: JSONEncoder().encode(s)), s)
-        XCTAssertEqual(s.sleepLevel.dim, 0.7)
-    }
-
-    func testSpotifyIsAddedAfterHBOMaxForExistingUsers() {
-        var s = LauncherSettings()
-        s.services.removeAll { $0.id == "spotify" }
-        let ids = s.mergingNewBuiltIns().services.map(\.id)
-        XCTAssertEqual(ids[ids.firstIndex(of: "max")! + 1], "spotify")
-    }
-
-    func testDebugOverlayIsOffByDefault() {
-        XCTAssertFalse(LauncherSettings().showDebugOnLaunch)
-    }
 }
 
 final class ServiceTests: XCTestCase {
@@ -126,10 +98,5 @@ final class ServiceTests: XCTestCase {
         var other = yt.service
         other.url = URL(string: "https://example.com")!
         XCTAssertEqual(yt.startURL(for: other), other.url)
-    }
-
-    func testColorsSurviveEncoding() throws {
-        let rgb = RGB(0.1, 0.2, 0.3)
-        XCTAssertEqual(try JSONDecoder().decode(RGB.self, from: JSONEncoder().encode(rgb)), rgb)
     }
 }

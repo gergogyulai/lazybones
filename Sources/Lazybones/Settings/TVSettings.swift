@@ -8,70 +8,92 @@ struct TVSettings: View {
     @State private var manualHost = ""
     @State private var resolving: String?
     @State private var pairError: String?
+    @State private var confirmingForget = false
 
     var body: some View {
-        Form {
-            Section {
-                if let config = model.settings.tv {
-                    LabeledContent(config.name) {
-                        HStack(spacing: 8) {
+        SettingsPane(page: .tv) {
+            if let config = model.settings.tv {
+                Section("Paired TV") {
+                    LabeledContent {
+                        Label {
+                            Text(tv.status.summary)
+                        } icon: {
                             Circle().fill(statusColor).frame(width: 8, height: 8)
-                            Text(statusText).foregroundStyle(.secondary)
                         }
+                        .foregroundStyle(.secondary)
+                    } label: {
+                        Text(config.name)
+                        Text(config.host)
                     }
-                    LabeledContent("Address", value: config.host)
-                    if let o = tv.soundOutput { LabeledContent("TV sound output", value: TVLink.soundOutputName(o)) }
-                    if let v = tv.volume { LabeledContent("TV volume", value: "\(v)\(tv.muted == true ? " (muted)" : "")") }
+                    if let o = tv.soundOutput { LabeledContent("Sound output", value: TVLink.soundOutputName(o)) }
+                    if let v = tv.volume { LabeledContent("Volume", value: tv.muted == true ? "Muted" : "\(v)") }
                     HStack {
+                        Spacer()
+                        Button("Forget TV…") { confirmingForget = true }
                         Button("Reconnect") { tv.connect() }
-                        Button("Forget TV", role: .destructive) { model.settings.tv = nil }
                     }
-                } else {
-                    Text("No TV paired.").foregroundStyle(.secondary)
                 }
-            } header: {
-                Text("Paired TV")
             }
 
             Section {
                 if discovery.found.isEmpty {
-                    HStack { ProgressView().controlSize(.small); Text("Looking for LG TVs…").foregroundStyle(.secondary) }
+                    LabeledContent("Looking for LG TVs…") { ProgressView().controlSize(.small) }
+                        .foregroundStyle(.secondary)
                 }
                 ForEach(discovery.found) { found in
+                    let paired = model.settings.tv?.name == found.name
                     LabeledContent(found.name) {
                         if resolving == found.name {
                             ProgressView().controlSize(.small)
+                        } else if paired {
+                            Label("Paired", systemImage: "checkmark.circle.fill")
+                                .foregroundStyle(.secondary)
                         } else {
-                            Button(model.settings.tv?.name == found.name ? "Paired" : "Pair") { pair(found) }
-                                .disabled(model.settings.tv?.name == found.name || resolving != nil)
+                            Button("Pair") { pair(found) }.disabled(resolving != nil)
                         }
                     }
                 }
-                LabeledContent("Or by address") {
+                LabeledContent("Pair by address") {
                     HStack {
-                        TextField("192.168.1.20", text: $manualHost).labelsHidden().frame(width: 160)
-                        Button("Pair") { model.settings.tv = TVConfig(name: "LG TV", host: manualHost.trimmingCharacters(in: .whitespaces)) }
-                            .disabled(manualHost.trimmingCharacters(in: .whitespaces).isEmpty)
+                        TextField("Address", text: $manualHost, prompt: Text("192.168.1.20"))
+                            .labelsHidden()
+                            .frame(width: 150)
+                            .onSubmit(pairManually)
+                        Button("Pair", action: pairManually).disabled(trimmedHost.isEmpty)
                     }
                 }
             } header: {
-                Text("LG webOS TVs on this network")
+                Text("TVs on This Network")
             } footer: {
-                if let pairError { Text(pairError).font(.caption).foregroundStyle(.red) }
-                Text("Pairing shows a prompt on the TV; accept it with the TV's remote. The TV must have \"LG Connect Apps\" (or \"Mobile TV On\") enabled.")
-                    .font(.caption).foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 4) {
+                    if let pairError { Text(pairError).foregroundStyle(.red) }
+                    Text("Pairing shows a prompt on the TV; accept it with the TV’s remote. The TV needs “LG Connect Apps” (or “Mobile TV On”) turned on.")
+                        .foregroundStyle(.secondary)
+                }
+                .font(.footnote)
             }
 
             Section {
-                Toggle("Control TV volume when audio goes out over HDMI", isOn: $model.settings.tvVolume)
-            } footer: {
-                Text("Macs can't send HDMI-CEC, so Lazybones controls the TV over the network instead. Volume steps reach a soundbar on HDMI ARC through the TV. Outputs with no volume control of their own and no TV fall back to adjusting the apps' volume.")
-                    .font(.caption).foregroundStyle(.secondary)
+                Toggle(isOn: $model.settings.tvVolume) {
+                    Text("Control TV volume over HDMI")
+                    Text("Volume steps reach a soundbar on HDMI ARC through the TV. Outputs with no volume control of their own fall back to the apps’ volume.")
+                }
             }
         }
-        .formStyle(.grouped)
+        .confirmationDialog("Forget \(model.settings.tv?.name ?? "this TV")?", isPresented: $confirmingForget) {
+            Button("Forget TV", role: .destructive) { model.settings.tv = nil }
+        } message: {
+            Text("Lazybones will stop controlling its volume and power. You’ll need to accept a new prompt on the TV to pair it again.")
+        }
         .onAppear { discovery.start() }
         .onDisappear { discovery.stop() }
+    }
+
+    private var trimmedHost: String { manualHost.trimmingCharacters(in: .whitespaces) }
+
+    private func pairManually() {
+        guard !trimmedHost.isEmpty else { return }
+        model.settings.tv = TVConfig(name: "LG TV", host: trimmedHost)
     }
 
     private func pair(_ found: FoundTV) {
@@ -83,12 +105,10 @@ struct TVSettings: View {
                 pairError = nil
                 model.settings.tv = TVConfig(name: found.name, host: host)
             } else {
-                pairError = "Couldn't reach \(found.name). Check that it's on and on this network, or pair by address."
+                pairError = "Couldn’t reach \(found.name). Check that it’s on and on this network, or pair by address."
             }
         }
     }
-
-    private var statusText: String { tv.status.summary }
 
     private var statusColor: Color {
         switch tv.status {
