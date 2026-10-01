@@ -1,5 +1,6 @@
 import Foundation
 import LGTV
+import SwiftUI
 
 /// What each page of the in-launcher settings contains. Built fresh from the current settings
 /// every time it's drawn, so a row always shows the truth.
@@ -23,7 +24,7 @@ extension AppModel {
                         adjust: { [unowned self] in settings.columns = min(max(settings.columns + $0, 3), 7) },
                         activate: { [unowned self] in settings.columns = settings.columns >= 7 ? 3 : settings.columns + 1 }),
             toggle("shelf", "Top Shelf", \.showShelf, detail: "Big artwork above the apps for the focused app"),
-            toggle("hints", "Control Hints", \.showHints, detail: "The line of button tips at the top of the Home Screen"),
+            toggle("hints", "Control Hints", \.showHints, detail: "Button tips on the Home Screen, the app switcher, Settings and the keyboard"),
         ]
     }
 
@@ -94,7 +95,7 @@ extension AppModel {
                 activate: paired ? nil : { [unowned self] in pair(tvFound) }))
         }
         if let tvPairError { rows.append(SettingsRow(id: "tv-error", title: tvPairError, style: .note)) }
-        rows.append(SettingsRow(id: "tv-note", title: "Pairing shows a prompt on the TV; accept it with the TV's remote. The TV needs \"LG Connect Apps\" or \"Mobile TV On\" turned on.",
+        rows.append(SettingsRow(id: "tv-note", title: "Pairing shows a prompt on the TV; accept it with the TV’s remote. The TV needs “LG Connect Apps” or “Mobile TV On” turned on.",
                                 style: .note))
         return rows
     }
@@ -125,8 +126,11 @@ extension AppModel {
         guard let i = settings.services.firstIndex(where: { $0.id == id }) else { return }
         let j = i + step
         guard settings.services.indices.contains(j) else { return }
-        settings.services.swapAt(i, j)
-        settingsScreen.focus(row: j)
+        // The row slides into its new place, carrying focus with it.
+        withAnimation(Motion.expand) {
+            settings.services.swapAt(i, j)
+            settingsScreen.focus(row: j)
+        }
     }
 
     private func percent(_ fraction: Double) -> String { "\(Int((fraction * 100).rounded()))%" }

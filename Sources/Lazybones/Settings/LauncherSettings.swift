@@ -9,7 +9,9 @@ struct LauncherSettings: Codable, Equatable {
     var hidden: Set<String> = []
     var columns = 5
     var showShelf = true
-    var showHints = true
+    /// Button tips on the Home Screen, the app switcher, Settings and the keyboard. Off by default,
+    /// as on tvOS; for learning the remote.
+    var showHints = false
     var showDebugOnLaunch = false
     var startFullScreen = true
     /// Play a sound when focus moves and when a choice is made.

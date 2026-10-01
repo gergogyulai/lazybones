@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import LGTV
 import MacSystem
 import SiriRemote
@@ -16,6 +17,9 @@ final class AppModel: ObservableObject {
     /// tilt toward `navDirection` either way.
     @Published private(set) var navTick = 0
     @Published private(set) var navDirection = CGSize.zero
+    /// Bumped by each click the launcher or one of its screens handles, so the focused item can
+    /// press in under it.
+    @Published private(set) var presses = 0
     /// Where the launcher sits in the window, so a service can zoom out of and back into its icon.
     var launcherFrame = CGRect.zero
 
@@ -31,6 +35,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var loading: Set<String> = []
     /// Services with media playing, per their pages.
     @Published private(set) var playing: Set<String> = []
+    /// Services whose page couldn't be reached, which show why instead, with Try Again.
+    @Published private(set) var failures: [String: LoadFailure] = [:]
 
     // MARK: Settings and modes
 
@@ -40,6 +46,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var sleepMode = false
     /// Bumped to ask the UI to open the Mac's Settings window (only views can do that).
     @Published private(set) var settingsRequests = 0
+    /// Bumped to ask the UI to open the debug window.
+    @Published private(set) var debugWindowRequests = 0
     /// The TV being paired from the settings screen, and how that went.
     @Published private(set) var tvPairing: String?
     @Published private(set) var tvPairError: String?
@@ -52,11 +60,12 @@ final class AppModel: ObservableObject {
     let switcher = AppSwitcher()
     let settingsScreen = SettingsScreen()
     let tint = ScreenTint()
+    let parallax = Parallax()
     let sounds: UISounds
     let diagnostics: Diagnostics
     let volume: VolumeController
     let controlCenter: ControlCenter
-    private(set) lazy var simulator = RemoteSimulator { [unowned self] in handle($0, simulated: true) }
+    let simulator = RemoteSimulator()
 
     var columns: Int { settings.columns }
     var visible: [Service] { settings.visibleServices }
@@ -86,12 +95,16 @@ final class AppModel: ObservableObject {
     private var audioServiceID: String?
     private var lastPointer = NSEvent.mouseLocation
     private var makingSounds = false
+    private var networkChanges: AnyCancellable?
+    private var control: DevControl?
 
-    /// `store`, `startsRemote` and `sounds` are for tests, which mustn't touch the user's settings, the remote or the speakers.
-    init(options: LaunchOptions = .current, store: SettingsStore = SettingsStore(), startsRemote: Bool = true,
+    /// `store`, `startsRemote` and `sounds` are for tests, which mustn't touch the user's settings, the
+    /// remote or the speakers (and, without `startsRemote`, don't listen for `Scripts/ctl.sh` either).
+    init(options: LaunchOptions = .current, store: SettingsStore? = nil, startsRemote: Bool = true,
          sounds: UISounds? = nil) {
+        let store = store ?? (options.freshSettings ? .fresh() : SettingsStore())
         let settings = store.load()
-        let diagnostics = Diagnostics(visible: settings.showDebugOnLaunch, echoToStdout: options.log)
+        let diagnostics = Diagnostics(visible: settings.showDebugOnLaunch || options.debug, echoToStdout: options.log)
         let router = VolumeRouter(tv: tv) { [web] level, muted in web.setMediaVolume(level, muted: muted) }
         router.usesTV = settings.tvVolume
 
@@ -116,13 +129,17 @@ final class AppModel: ObservableObject {
 
     private func wireUp() {
         remote.onEvent = { [weak self] in self?.handle($0) }
-        remote.onDiagnostic = { [weak self] in self?.diagnostics.log("remote: \($0)") }
+        remote.onTouchRest = { [weak self] in self?.touchRested($0) }
+        simulator.onEvent = { [weak self] in self?.handle($0, simulated: true) }
+        simulator.onRest = { [weak self] in self?.touchRested($0) }
+        remote.onDiagnostic = { [weak self] in self?.diagnostics.log($0, .remote) }
         remote.onStatusChange = { [weak self] status in
             guard let self else { return }
             let old = diagnostics.remote
             diagnostics.remote = status
+            simulator.hardware = status.buttons
             if status.buttons != old.buttons || status.touch != old.touch {
-                diagnostics.log("remote: buttons \(status.buttons), touch \(status.touch ? "connected" : "not found")")
+                diagnostics.log("buttons \(status.buttons), touch \(status.touch ? "connected" : "not found")", .remote)
             }
         }
 
@@ -131,7 +148,8 @@ final class AppModel: ObservableObject {
             guard let self else { return }
             if tv.status != lastTVStatus {
                 lastTVStatus = tv.status
-                diagnostics.log("tv \(tv.name): \(tv.status)")
+                let failed = if case .failed = tv.status { true } else { false }
+                diagnostics.log("\(tv.name): \(tv.status)", .tv, level: failed ? .error : .info)
             }
             volume.refreshHUD()
             if controlCenter.isOpen { controlCenter.volume = volume.router.state() }
@@ -142,6 +160,27 @@ final class AppModel: ObservableObject {
             if key == "playing" { self?.setPlaying(id, value == "1") }
         }
         web.onLoaded = { [weak self] id in self?.loading.remove(id) }
+        web.onFailed = { [weak self] id, failure in self?.failed(id, failure) }
+        web.onCommit = { [weak self] id in
+            self?.failures[id] = nil
+            self?.diagnostics.pageReset(id)
+        }
+        web.onConsole = { [weak self] id, level, message in
+            let l: LogLevel = switch level {
+            case "error": .error
+            case "warn": .warning
+            case "debug": .debug
+            default: .info
+            }
+            self?.diagnostics.console(id, l, message)
+        }
+        web.forwardsAllConsole = options.pageLog
+        // Pages that failed for want of a network try again once there is one.
+        networkChanges = controlCenter.$network
+            .map { $0.kind != .offline }
+            .removeDuplicates()
+            .filter { $0 }
+            .sink { [weak self] _ in self?.retryAfterReconnecting() }
 
         settingsScreen.rowsProvider = { [weak self] in self?.settingsRows(for: $0) ?? [] }
 
@@ -162,16 +201,20 @@ final class AppModel: ObservableObject {
         let initial = options.open.flatMap { id in settings.services.first { $0.id == id } }
         if !options.noExtensions {
             web.extensions = extensions
-            extensions.onStatus = { [weak self] in self?.diagnostics.log($0) }
+            extensions.onStatus = { [weak self] in self?.diagnostics.log($0, .ext) }
         }
         Task {
             if !options.noExtensions { await extensions.loadBundled(inspect: options.extensionDebug) }
             if let secs = options.openDelay { try? await Task.sleep(for: .seconds(secs)) }
             if let initial { open(initial) }
         }
-        if startsRemote { remote.start() }
+        if startsRemote, !options.noHardwareRemote { remote.start() }
         sounds.prepare()
         if options.remote { DispatchQueue.main.async { self.simulator.show() } }
+        if options.acceptsControl, startsRemote {
+            control = DevControl { [weak self] in await self?.run($0) ?? "" }
+            diagnostics.log("taking commands from Scripts/ctl.sh", .control)
+        }
     }
 
     /// Whether to go full screen at launch.
@@ -181,8 +224,15 @@ final class AppModel: ObservableObject {
 
     /// `simulated` events come from the on-screen remote, which macOS never acts on itself.
     func handle(_ event: RemoteEvent, simulated: Bool = false) {
-        diagnostics.log("\(simulated ? "sim " : "")\(event.source) \(event.command)")
+        diagnostics.log("\(simulated ? "sim " : "")\(event.source) \(event.command)", .remote)
+        if !simulated { simulator.mirror(event) }
         withSounds(for: event.command) { route(event, simulated: simulated) }
+    }
+
+    /// Where a thumb rests on the touch surface. Only the Home Screen's icons tilt under it;
+    /// anywhere else they sit level.
+    private func touchRested(_ rest: SIMD2<Float>?) {
+        parallax.update(active == nil && !overlayOpen && !focus.onBar ? rest : nil)
     }
 
     private func route(_ event: RemoteEvent, simulated: Bool) {
@@ -196,6 +246,7 @@ final class AppModel: ObservableObject {
             return
         }
         if overlayHandle(command) { return }
+        if failureHandle(command) { return }
         if keyboard.handle(command) { return }
         switch command {
         case .siri: diagnostics.toggle()
@@ -269,9 +320,12 @@ final class AppModel: ObservableObject {
         makingSounds = true
         defer { makingSounds = false }
         let depthBefore = depth
-        // Moving and selecting are for the launcher and its overlays; a page makes its own noise.
-        let focusBefore = (command?.isDirection == true || command == .select) && (active == nil || overlayOpen)
+        // Moving and selecting are for the launcher, its overlays and the failure screen; a page
+        // makes its own noise.
+        let focusBefore = (command?.isDirection == true || command == .select) && (active == nil || overlayOpen || showsFailure)
             ? navigationFocus : nil
+        // The focused item presses in under the click, whatever the click then does.
+        if command == .select, focusBefore != nil { presses += 1 }
         action()
         if depth != depthBefore {
             sounds.play(depth > depthBefore ? .push : .pop)
@@ -363,13 +417,13 @@ final class AppModel: ObservableObject {
 
     private func launcherKey(_ ev: NSEvent) -> Bool {
         // The simulator window turns keys into remote presses itself.
-        guard !(ev.window is RemotePanel), active == nil || overlayOpen,
+        guard !(ev.window is RemotePanel), active == nil || overlayOpen || showsFailure,
               ev.modifierFlags.intersection(.deviceIndependentFlagsMask).subtracting([.function, .numericPad]).isEmpty
         else { return false }
         let map: [UInt16: RemoteCommand] = [123: .left, 124: .right, 125: .down, 126: .up, 36: .select, 53: .back]
         guard let command = map[ev.keyCode] else { return false }
         withSounds(for: command) {
-            if !overlayHandle(command) { navigate(command, repeating: ev.isARepeat) }
+            if !overlayHandle(command), !failureHandle(command) { navigate(command, repeating: ev.isARepeat) }
         }
         return true
     }
@@ -380,6 +434,8 @@ final class AppModel: ObservableObject {
         if active?.id == s.id { return }
         if let i = visible.firstIndex(where: { $0.id == s.id }) { focus.select(i, columns: columns) }
         if web.views[s.id] == nil { expectLoad(of: s.id) }
+        // Opening an app that couldn't load last time tries again, as reopening one on tvOS would.
+        else if failures[s.id]?.firstLoad == true { retry(s) }
         extensions.activate(web.view(for: s))
         recents.touch(s.id)
         // Video takes over from music that was playing behind the Home Screen.
@@ -390,6 +446,8 @@ final class AppModel: ObservableObject {
         presentation += 1
         let token = presentation
         active = s
+        // The zoom grows out of the icon's resting frame, so it must be level.
+        parallax.reset()
         if presented?.id != s.id {
             presented = s
             zoomed = false
@@ -398,7 +456,7 @@ final class AppModel: ObservableObject {
         // Let the icon-sized first frame render before growing out of it.
         DispatchQueue.main.async { [self] in
             guard presentation == token else { return }
-            withAnimation(Self.zoomIn) { zoomed = true }
+            withAnimation(Motion.zoomIn) { zoomed = true }
         }
     }
 
@@ -425,7 +483,7 @@ final class AppModel: ObservableObject {
             web.views[s.id]?.window?.makeFirstResponder(nil)
             presentation += 1
             let token = presentation
-            withAnimation(Self.zoomOut, completionCriteria: .logicallyComplete) {
+            withAnimation(Motion.zoomOut, completionCriteria: .logicallyComplete) {
                 zoomed = false
             } completion: { [self] in
                 if presentation == token { presented = nil }
@@ -442,6 +500,43 @@ final class AppModel: ObservableObject {
         web.back(from: s) { [weak self] handled in
             guard let self, !handled, active?.id == s.id else { return }
             withSounds { self.goHome() }
+        }
+    }
+
+    // MARK: Failed loads
+
+    /// Whether the open app is showing why its page couldn't load.
+    var showsFailure: Bool { active.map { failures[$0.id] != nil } ?? false }
+
+    private func failed(_ id: String, _ failure: LoadFailure) {
+        failures[id] = failure
+        loading.remove(id)
+        if active?.id == id { keyboard.dismiss() }
+        diagnostics.log("\(id) · load failed: \(failure.reason)", .web, level: .error)
+    }
+
+    /// The failure screen has a single button, so directions go nowhere: click is Try Again, and
+    /// Back leaves, for Home if nothing had loaded or else for the page that was showing before.
+    private func failureHandle(_ command: RemoteCommand) -> Bool {
+        guard let s = active, let failure = failures[s.id] else { return false }
+        switch command {
+        case .select: retry(s)
+        case .back: if failure.firstLoad { goHome() } else { failures[s.id] = nil }
+        case .up, .down, .left, .right: break
+        default: return false
+        }
+        return true
+    }
+
+    func retry(_ s: Service) {
+        guard let failure = failures.removeValue(forKey: s.id) else { return }
+        expectLoad(of: s.id)
+        web.retry(s, failure)
+    }
+
+    private func retryAfterReconnecting() {
+        for (id, failure) in failures where failure.retryWhenOnline {
+            if let s = settings.services.first(where: { $0.id == id }) { retry(s) }
         }
     }
 
@@ -547,6 +642,9 @@ final class AppModel: ObservableObject {
     /// Opens the Mac's Settings window (⌘,).
     func openMacSettings() { settingsRequests += 1 }
 
+    /// Opens the debug window (⌥⌘D).
+    func openDebugWindow() { debugWindowRequests += 1 }
+
     func setSleepMode(_ on: Bool) {
         guard on != sleepMode else { return }
         sleepMode = on
@@ -567,7 +665,7 @@ final class AppModel: ObservableObject {
             if let host {
                 settings.tv = TVConfig(name: found.name, host: host)
             } else {
-                tvPairError = "Couldn't reach \(found.name). Check that it's on and on this network."
+                tvPairError = "Couldn’t reach \(found.name). Check that it’s on and on this network."
             }
         }
     }
@@ -599,14 +697,10 @@ final class AppModel: ObservableObject {
         }
         playing.remove(id)
         loading.remove(id)
+        failures[id] = nil
         recents.remove(id)
         if audioServiceID == id { audioServiceID = nil }
         switcher.remove(id)
         web.discard(id)
     }
-
-    // MARK: Motion
-
-    static let zoomIn = Animation.spring(duration: 0.55, bounce: 0)
-    static let zoomOut = Animation.spring(duration: 0.45, bounce: 0)
 }

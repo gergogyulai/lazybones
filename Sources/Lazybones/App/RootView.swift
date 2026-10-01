@@ -10,29 +10,45 @@ struct RootView: View {
     @EnvironmentObject var keyboard: KeyboardController
     @EnvironmentObject var diagnostics: Diagnostics
     @EnvironmentObject var volume: VolumeController
-    @Environment(\.openSettings) private var openSettings
+    @Environment(\.openWindow) private var openWindow
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// The window's width, for sizing the volume display like the rest of the interface.
+    @State private var width: CGFloat = 1920
 
     var body: some View {
+        // A screen that takes over (Settings, the app switcher) pushes whatever was showing back,
+        // so it reads as a layer above it rather than a page replacing it.
+        let receded = settingsScreen.isOpen || switcher.isOpen
+        // Screens settle into place from just in front; with Reduce Motion they only fade.
+        let screenTransition: AnyTransition = reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 1.05))
+
         ZStack(alignment: .topTrailing) {
             Color.black.ignoresSafeArea()
-            // Always there, fully transparent while an app is open, so it doesn't have to be built
-            // (its shelf art is a big blur) at the moment an exit animation starts.
-            LauncherView()
-                .scaleEffect(model.zoomed ? 1.08 : 1)
-                .opacity(model.zoomed ? 0 : 1)
-                .allowsHitTesting(model.active == nil)
-            ForEach(model.mounted) { s in
-                if let wv = model.web.views[s.id] {
-                    ServiceLayer(service: s, webView: wv)
+            ZStack {
+                // Always there, fully transparent while an app is open, so it doesn't have to be
+                // built (its shelf art is a big blur) at the moment an exit animation starts. It
+                // moves toward you as an app grows out of it, and back as the app returns.
+                LauncherView()
+                    .scaleEffect(model.zoomed && !reduceMotion ? 1.08 : 1)
+                    .opacity(model.zoomed ? 0 : 1)
+                    .allowsHitTesting(model.active == nil)
+                ForEach(model.mounted) { s in
+                    if let wv = model.web.views[s.id] {
+                        ServiceLayer(service: s, webView: wv)
+                    }
                 }
             }
+            .scaleEffect(receded && !reduceMotion ? 0.96 : 1)
             if keyboard.isVisible, let s = model.active {
-                KeyboardView(accent: s.accent ?? s.color)
-                    .transition(.move(edge: .bottom).combined(with: .opacity))
+                KeyboardView(accent: s.accent ?? s.color, showsHints: model.settings.showHints)
+                    .transition(reduceMotion ? .opacity : .move(edge: .bottom).combined(with: .opacity))
             }
             VStack(alignment: .trailing, spacing: 12) {
                 if let v = volume.hud {
-                    VolumeHUDView(state: v).transition(.move(edge: .top).combined(with: .opacity))
+                    let u = max(width / 1920, 0.5)
+                    VolumeHUDView(state: v, u: u)
+                        .padding([.top, .trailing], 28 * u)
+                        .transition(reduceMotion ? .opacity : .move(edge: .top).combined(with: .opacity))
                 }
                 if diagnostics.isVisible {
                     DebugOverlay(service: model.active)
@@ -41,17 +57,19 @@ struct RootView: View {
             .padding(20)
             if switcher.isOpen {
                 AppSwitcherView()
-                    .transition(.opacity.combined(with: .scale(scale: 1.05)))
+                    .transition(screenTransition)
             }
             if settingsScreen.isOpen {
                 SettingsScreenView()
-                    .transition(.opacity.combined(with: .scale(scale: 1.05)))
+                    .transition(screenTransition)
             }
             if controlCenter.isOpen {
-                ControlCenterView(perform: model.perform)
+                ControlCenterView(perform: model.perform, presses: model.presses)
             }
         }
         .preferredColorScheme(.dark)
-        .onChange(of: model.settingsRequests) { openSettings() }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
+        .onChange(of: model.settingsRequests) { openWindow(id: SettingsView.windowID) }
+        .onChange(of: model.debugWindowRequests) { openWindow(id: DebugWindow.windowID) }
     }
 }

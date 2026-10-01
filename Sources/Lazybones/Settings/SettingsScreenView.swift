@@ -9,6 +9,7 @@ struct SettingsScreenView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var tv: TVLink
     @EnvironmentObject var diagnostics: Diagnostics
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -20,7 +21,9 @@ struct SettingsScreenView: View {
                     .ignoresSafeArea()
                     .onTapGesture { screen.close() }
 
-                HStack(alignment: .top, spacing: 70 * u) {
+                // On a shared baseline, "Settings" and the page's title line up, and so do the
+                // first page and the first row beneath them.
+                HStack(alignment: .firstTextBaseline, spacing: 70 * u) {
                     sidebar(u)
                     content(u)
                 }
@@ -37,7 +40,7 @@ struct SettingsScreenView: View {
     private func sidebar(_ u: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 10 * u) {
             Text("Settings")
-                .font(.system(size: 64 * u, weight: .heavy, design: .rounded))
+                .font(.system(size: 64 * u, weight: .bold))
                 .padding(.bottom, 26 * u)
             GlassGroup(spacing: 10 * u) { VStack(alignment: .leading, spacing: 10 * u) {
             ForEach(SettingsScreen.Page.allCases) { page in
@@ -54,17 +57,20 @@ struct SettingsScreenView: View {
                 .padding(.vertical, 18 * u)
                 .modifier(PageGlass(shown: selected, focused: focused, u: u))
                 .scaleEffect(focused ? 1.04 : 1)
+                .pressEffect(trigger: model.presses, active: focused)
                 .contentShape(Rectangle())
                 .onTapGesture {
-                    withAnimation(.spring(duration: 0.25, bounce: 0.2)) { screen.select(page: page) }
+                    withAnimation(Motion.focus) { screen.select(page: page) }
                 }
-                .animation(.spring(duration: 0.25, bounce: 0.2), value: focused)
+                .animation(Motion.focus, value: focused)
             }
             } }
             Spacer()
-            Text("Back to close")
-                .font(.system(size: 18 * u))
-                .foregroundStyle(.white.opacity(0.4))
+            if model.settings.showHints {
+                Text("Back to close")
+                    .font(.system(size: 18 * u))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
         }
         .frame(width: 440 * u)
     }
@@ -73,7 +79,7 @@ struct SettingsScreenView: View {
         let rows = screen.rows
         return VStack(alignment: .leading, spacing: 22 * u) {
             Text(screen.page.title)
-                .font(.system(size: 44 * u, weight: .bold, design: .rounded))
+                .font(.system(size: 44 * u, weight: .bold))
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     GlassGroup(spacing: 12 * u) {
@@ -90,13 +96,15 @@ struct SettingsScreenView: View {
                 .scrollClipDisabled()
                 .onChange(of: screen.row) { _, i in
                     guard rows.indices.contains(i) else { return }
-                    withAnimation(.easeInOut(duration: 0.3)) { proxy.scrollTo(rows[i].id, anchor: .center) }
+                    withAnimation(Motion.scroll) { proxy.scrollTo(rows[i].id, anchor: .center) }
                 }
             }
         }
         .frame(maxWidth: 900 * u, maxHeight: .infinity, alignment: .topLeading)
         .id(screen.page)
-        .transition(.opacity)
+        // A new page rises into place as the old one fades.
+        .transition(.asymmetric(insertion: reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 28 * u)),
+                                removal: .opacity))
     }
 
     // MARK: Rows
@@ -140,8 +148,9 @@ struct SettingsScreenView: View {
             .glassSurface(RoundedRectangle(cornerRadius: 24 * u, style: .continuous),
                           tint: focused ? .white.opacity(0.92) : nil, interactive: row.focusable)
             .scaleEffect(focused ? 1.02 : 1)
+            .pressEffect(trigger: model.presses, active: focused)
             .contentShape(Rectangle())
-            .animation(.spring(duration: 0.25, bounce: 0.2), value: focused)
+            .animation(Motion.focus, value: focused)
         }
     }
 
@@ -163,7 +172,7 @@ struct SettingsScreenView: View {
                 .allowsHitTesting(false)
                 .scaleEffect(1.7 * u)
                 .frame(width: 84 * u, height: 48 * u)
-                .animation(.spring(duration: 0.3, bounce: 0.2), value: on)
+                .animation(Motion.value, value: on)
         case let .slider(fraction, label):
             HStack(spacing: 18 * u) {
                 if focused { Image(systemName: "chevron.left").opacity(0.5) }
@@ -174,15 +183,22 @@ struct SettingsScreenView: View {
                         Capsule().fill(focused ? .black : .white)
                             .frame(width: 280 * u * min(max(fraction, 0), 1))
                     }
-                    .animation(.spring(duration: 0.25), value: fraction)
-                Text(label).monospacedDigit().frame(width: 64 * u, alignment: .trailing)
+                    .animation(Motion.value, value: fraction)
+                Text(label)
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(Motion.value, value: label)
+                    .frame(width: 64 * u, alignment: .trailing)
                 if focused { Image(systemName: "chevron.right").opacity(0.5) }
             }
             .font(.system(size: 22 * u, weight: .semibold))
         case let .value(text):
             HStack(spacing: 14 * u) {
                 if focused, row.adjust != nil { Image(systemName: "chevron.left").opacity(0.5) }
-                Text(text).opacity(0.7)
+                Text(text)
+                    .opacity(0.7)
+                    .contentTransition(.numericText())
+                    .animation(Motion.value, value: text)
                 if focused, row.adjust != nil { Image(systemName: "chevron.right").opacity(0.5) }
             }
             .font(.system(size: 24 * u, weight: .medium))
@@ -190,6 +206,8 @@ struct SettingsScreenView: View {
             Text(shown ? "Shown" : "Hidden")
                 .font(.system(size: 22 * u, weight: .medium))
                 .opacity(0.7)
+                .contentTransition(.opacity)
+                .animation(Motion.value, value: shown)
         case .button:
             Image(systemName: "chevron.right")
                 .font(.system(size: 20 * u, weight: .bold))

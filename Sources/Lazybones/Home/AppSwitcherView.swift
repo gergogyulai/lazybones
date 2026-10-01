@@ -4,6 +4,7 @@ import SwiftUI
 struct AppSwitcherView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var switcher: AppSwitcher
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         GeometryReader { geo in
@@ -23,7 +24,7 @@ struct AppSwitcherView: View {
                         Image(systemName: "rectangle.on.rectangle.slash")
                             .font(.system(size: 64 * u, weight: .light))
                         Text("No Apps Open")
-                            .font(.system(size: 40 * u, weight: .bold, design: .rounded))
+                            .font(.system(size: 40 * u, weight: .bold))
                         Text("Apps you open stay here until you close them.")
                             .font(.system(size: 22 * u))
                             .foregroundStyle(.white.opacity(0.6))
@@ -41,7 +42,11 @@ struct AppSwitcherView: View {
                                             switcher.focus = i
                                             model.perform(AppSwitcher.Action.resume(s))
                                         }
-                                        .transition(.move(edge: .top).combined(with: .opacity))
+                                        // Closing flicks the card up and away, as the swipe that closed it did.
+                                        .transition(.asymmetric(
+                                            insertion: .opacity,
+                                            removal: reduceMotion ? .opacity
+                                                : .offset(y: -geo.size.height * 0.6).combined(with: .opacity)))
                                 }
                             }
                             .padding(.horizontal, max((geo.size.width - cardWidth) / 2, 60 * u))
@@ -50,7 +55,7 @@ struct AppSwitcherView: View {
                         .scrollClipDisabled()
                         .onChange(of: switcher.focus) { _, i in
                             guard switcher.apps.indices.contains(i) else { return }
-                            withAnimation(.spring(duration: 0.4, bounce: 0.1)) {
+                            withAnimation(Motion.scroll) {
                                 proxy.scrollTo(switcher.apps[i].id, anchor: .center)
                             }
                         }
@@ -58,11 +63,13 @@ struct AppSwitcherView: View {
                     .frame(maxHeight: .infinity)
                 }
 
-                Text(switcher.apps.isEmpty ? "Back to close" : "Click to open · swipe up to close an app · Back to dismiss")
-                    .font(.system(size: 20 * u, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.5))
-                    .padding(.bottom, 56 * u)
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                if model.settings.showHints {
+                    Text(switcher.apps.isEmpty ? "Back to close" : "Click to open · swipe up to close an app · Back to dismiss")
+                        .font(.system(size: 20 * u, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .padding(.bottom, 56 * u)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                }
             }
         }
         .foregroundStyle(.white)
@@ -102,7 +109,7 @@ struct AppSwitcherView: View {
             .shadow(color: .black.opacity(focused ? 0.55 : 0.3), radius: (focused ? 40 : 14) * u, y: (focused ? 26 : 8) * u)
 
             HStack(spacing: 14 * u) {
-                IconFace(service: s, height: 34 * u, unit: 0.3)
+                IconFace(service: s, height: 34 * u, unit: 0.3, compact: true)
                     .frame(width: 57 * u, height: 34 * u)
                     .clipShape(RoundedRectangle(cornerRadius: 8 * u, style: .continuous))
                 Text(s.name).font(.system(size: 28 * u, weight: .semibold))
@@ -118,7 +125,8 @@ struct AppSwitcherView: View {
             .glassSurface(Capsule(), tint: focused ? .white.opacity(0.12) : nil)
         }
         .scaleEffect(focused ? 1.08 : 0.94)
+        .pressEffect(trigger: model.presses, active: focused)
         .opacity(focused ? 1 : 0.6)
-        .animation(.spring(duration: 0.3, bounce: 0.2), value: focused)
+        .animation(Motion.focus, value: focused)
     }
 }

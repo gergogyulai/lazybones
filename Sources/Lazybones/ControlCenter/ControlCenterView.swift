@@ -8,8 +8,11 @@ struct ControlCenterView: View {
     @EnvironmentObject var diagnostics: Diagnostics
     @EnvironmentObject var cc: ControlCenter
     @EnvironmentObject var tv: TVLink
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Carries out an action that reaches outside the panel.
     let perform: (ControlCenter.Action) -> Void
+    /// Clicks so far, for pressing in the focused tile.
+    var presses = 0
 
     var body: some View {
         GeometryReader { geo in
@@ -47,7 +50,7 @@ struct ControlCenterView: View {
                 .glassSurface(RoundedRectangle(cornerRadius: 48 * u, style: .continuous))
                 .environment(\.colorScheme, .dark)
                 .padding(40 * u)
-                .transition(.move(edge: .trailing).combined(with: .opacity))
+                .transition(reduceMotion ? .opacity : .move(edge: .trailing).combined(with: .opacity))
             }
         }
         .foregroundStyle(.white)
@@ -58,7 +61,7 @@ struct ControlCenterView: View {
             TimelineView(.everyMinute) { ctx in
                 VStack(alignment: .leading, spacing: 2 * u) {
                     Text(ctx.date, format: .dateTime.hour().minute())
-                        .font(.system(size: 60 * u, weight: .bold, design: .rounded))
+                        .font(.system(size: 60 * u, weight: .semibold))
                         .monospacedDigit()
                     Text(ctx.date, format: .dateTime.weekday(.wide).month(.wide).day())
                         .font(.system(size: 20 * u, weight: .medium))
@@ -96,7 +99,7 @@ struct ControlCenterView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(20 * u)
-        .tile(focused: focused, u: u)
+        .tile(focused: focused, u: u, presses: presses)
         .onTapGesture { cc.focus = item; if let a = cc.handle(.select) { perform(a) } }
     }
 
@@ -111,8 +114,11 @@ struct ControlCenterView: View {
                     Text(target).font(.system(size: 16 * u, weight: .medium)).opacity(0.6).lineLimit(1)
                 }
                 Spacer()
-                Text(focused ? "◀ ▶ adjust · click to mute" : muted ? "Muted" : "\(cc.volume?.level ?? 0)%")
+                // The level stays in view while it's being changed.
+                Text(muted ? "Muted" : "\(cc.volume?.level ?? 0)%")
                     .font(.system(size: 16 * u, weight: .medium))
+                    .monospacedDigit()
+                    .contentTransition(.numericText())
                     .opacity(0.6)
             }
             HStack(spacing: 14 * u) {
@@ -126,11 +132,11 @@ struct ControlCenterView: View {
                         }
                 }
                 .frame(height: 10 * u)
-                .animation(.spring(duration: 0.25), value: level)
+                .animation(Motion.value, value: level)
             }
         }
         .padding(20 * u)
-        .tile(focused: focused, u: u)
+        .tile(focused: focused, u: u, presses: presses)
         .onTapGesture { cc.focus = .volume }
     }
 
@@ -174,6 +180,7 @@ struct ControlCenterView: View {
                         .padding(.vertical, 12 * u)
                         .background(rowFocused ? .white : .clear, in: RoundedRectangle(cornerRadius: 16 * u, style: .continuous))
                         .scaleEffect(rowFocused ? 1.02 : 1)
+                        .pressEffect(trigger: presses, active: rowFocused)
                         .onTapGesture {
                             cc.outputFocus = i
                             _ = cc.handle(.select)
@@ -184,7 +191,7 @@ struct ControlCenterView: View {
                 .transition(.opacity.combined(with: .move(edge: .top)))
             }
         }
-        .tile(focused: focused, u: u, expanded: cc.outputExpanded)
+        .tile(focused: focused, u: u, expanded: cc.outputExpanded, presses: presses)
         .onTapGesture { cc.focus = .output; _ = cc.handle(.select) }
     }
 
@@ -206,12 +213,15 @@ struct ControlCenterView: View {
         .glassSurface(RoundedRectangle(cornerRadius: 28 * u, style: .continuous))
     }
 
+    /// "Connected", and whether through a VPN. The address, signal and interface are for
+    /// debugging, so they show only while the debug overlay is on.
     private func networkDetail(_ n: NetworkInfo) -> String {
         guard n.kind != .offline else { return "Check your network connection" }
         var parts = ["Connected"]
+        if n.vpn { parts.append("VPN") }
+        guard diagnostics.isVisible else { return parts.joined(separator: " · ") }
         if let a = n.address { parts.append(a) }
         if let rssi = n.rssi, rssi != 0 { parts.append("\(rssi) dBm") }
-        if n.vpn { parts.append("VPN") }
         if let i = n.interface { parts.append(i) }
         return parts.joined(separator: " · ")
     }
@@ -219,14 +229,15 @@ struct ControlCenterView: View {
 
 private extension View {
     /// tvOS Control Center focus: the focused tile turns to bright glass with dark content and lifts.
-    func tile(focused: Bool, u: CGFloat, expanded: Bool = false) -> some View {
+    func tile(focused: Bool, u: CGFloat, expanded: Bool = false, presses: Int) -> some View {
         self
             .foregroundStyle(focused ? .black : .white)
             .glassSurface(RoundedRectangle(cornerRadius: 28 * u, style: .continuous),
                           tint: focused ? .white.opacity(0.92) : expanded ? .white.opacity(0.08) : nil, interactive: true)
             .scaleEffect(focused ? 1.04 : 1)
+            .pressEffect(trigger: presses, active: focused)
             .shadow(color: .black.opacity(focused ? 0.3 : 0), radius: 16 * u, y: 8 * u)
             .zIndex(focused ? 1 : 0)
-            .animation(.spring(duration: 0.25, bounce: 0.2), value: focused)
+            .animation(Motion.focus, value: focused)
     }
 }

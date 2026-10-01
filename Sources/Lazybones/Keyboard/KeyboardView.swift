@@ -5,6 +5,8 @@ import SwiftUI
 struct KeyboardView: View {
     @EnvironmentObject var kb: KeyboardController
     let accent: Color
+    /// Button tips under the keys.
+    var showsHints = false
 
     var body: some View {
         GeometryReader { geo in
@@ -40,7 +42,7 @@ struct KeyboardView: View {
                             }
                         }
                         .animation(.snappy(duration: 0.25), value: kb.mode)
-                        hints(u)
+                        if showsHints { hints(u) }
                     }
                     .padding(.horizontal, 44 * u)
                     .padding(.top, 36 * u)
@@ -214,7 +216,7 @@ private struct KeyCap: View {
             // Wide keys lift by about the same number of points as letters, not the same ratio.
             .scaleEffect(pressed ? 1.0 : focused ? 1 + (pill ? 0.1 : 0.16) / max(1, key.width * 0.8) : 1)
             .shadow(color: .black.opacity(focused ? 0.55 : 0), radius: 18 * u, y: 12 * u)
-            .animation(.spring(duration: 0.24, bounce: 0.3), value: focused)
+            .animation(Motion.focus, value: focused)
             .animation(.spring(duration: 0.14, bounce: 0.5), value: pressed)
             .contentShape(shape)
     }

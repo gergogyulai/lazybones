@@ -5,6 +5,13 @@ import SwiftUI
 struct LazybonesApp: App {
     @StateObject private var model = AppModel()
 
+    init() {
+        if CommandLine.arguments.contains("--help") || CommandLine.arguments.contains("-h") {
+            print("usage: Lazybones [options]\n\n\(LaunchOptions.usage)")
+            exit(0)
+        }
+    }
+
     var body: some Scene {
         Window("Lazybones", id: "main") {
             RootView()
@@ -16,6 +23,7 @@ struct LazybonesApp: App {
                 .environmentObject(model.keyboard)
                 .environmentObject(model.diagnostics)
                 .environmentObject(model.volume)
+                .environmentObject(model.parallax)
                 .frame(minWidth: 960, minHeight: 540)
                 .onAppear(perform: enterFullScreenIfWanted)
         }
@@ -27,14 +35,30 @@ struct LazybonesApp: App {
                 Button("Sleep Mode") { model.toggleSleepMode() }.keyboardShortcut("s", modifiers: [.command, .shift])
                 Button("Launcher Settings") { model.openSettingsScreen() }.keyboardShortcut(",", modifiers: [.command, .option])
                 Button("Toggle Debug") { model.diagnostics.toggle() }.keyboardShortcut("d", modifiers: [.command, .shift])
+                Button("Debug Window") { model.openDebugWindow() }.keyboardShortcut("i", modifiers: [.command, .option])
                 Button("Remote Simulator") { model.simulator.toggle() }.keyboardShortcut("r", modifiers: [.command, .option])
                 Button("Reload") { model.reload() }.keyboardShortcut("r")
             }
+            // ⌘, opens the Settings window below rather than SwiftUI's preferences-style one.
+            CommandGroup(replacing: .appSettings) { OpenSettingsButton() }
         }
 
-        Settings {
+        // A full window rather than a `Settings` scene, so it gets what System Settings has: a
+        // unified toolbar with back and forward, the sidebar floating as glass, and resizing.
+        Window("Lazybones Settings", id: SettingsView.windowID) {
             SettingsView().environmentObject(model).environmentObject(model.tv)
         }
+        .windowToolbarStyle(.unified)
+        .windowResizability(.contentMinSize)
+        .defaultSize(width: 920, height: 760)
+        .defaultPosition(.center)
+        .commandsRemoved()
+
+        Window("Lazybones Debug", id: DebugWindow.windowID) {
+            DebugWindow().environmentObject(model).environmentObject(model.diagnostics)
+        }
+        .defaultSize(width: 900, height: 640)
+        .commandsRemoved()
     }
 
     private func enterFullScreenIfWanted() {

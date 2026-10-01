@@ -5,6 +5,12 @@ import SwiftUI
 /// and leaves it as a blurred backdrop.
 struct LauncherView: View {
     @EnvironmentObject var model: AppModel
+    /// The app the top shelf shows. It follows focus once focus rests, so a quick swipe across a
+    /// row doesn't flash every app's artwork on the way.
+    @State private var shelfID: String?
+
+    /// How long focus has to rest on an app before the shelf changes to it.
+    private static let shelfSettle = Duration.milliseconds(180)
 
     var body: some View {
         GeometryReader { geo in
@@ -21,11 +27,12 @@ struct LauncherView: View {
                     EmptyLauncher(unit: m.unit)
                 } else {
                     let focused = apps[layout.selected]
+                    let shown = apps.first { $0.id == shelfID } ?? focused
                     let scrolled = layout.scrolled
 
                     if shelf {
-                        ShelfArt(service: focused, size: geo.size, unit: m.unit)
-                            .id(focused.id)
+                        ShelfArt(service: shown, size: geo.size, unit: m.unit)
+                            .id(shown.id)
                             .transition(.opacity)
                             .blur(radius: scrolled ? 50 * m.unit : 0)
                             .overlay(Color.black.opacity(scrolled ? 0.55 : 0))
@@ -38,9 +45,10 @@ struct LauncherView: View {
                         ZStack(alignment: .bottomLeading) {
                             Color.clear
                             if shelf {
-                                ShelfCaption(service: focused, unit: m.unit)
-                                    .id(focused.id)
-                                    .transition(.opacity.combined(with: .offset(y: 12 * m.unit)))
+                                ShelfCaption(service: shown, unit: m.unit)
+                                    .id(shown.id)
+                                    .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16 * m.unit)),
+                                                            removal: .opacity))
                             }
                         }
                         .frame(height: m.headerHeight, alignment: .bottomLeading)
@@ -77,16 +85,33 @@ struct LauncherView: View {
                         .frame(maxWidth: geo.size.width - 380 * m.unit, maxHeight: .infinity, alignment: .topLeading)
                 }
 
+                // Only reachable from the first row, so it makes way for the row above when the grid
+                // scrolls up underneath it.
+                let barHidden = !apps.isEmpty && layout.scrolled
                 TopBar(unit: m.unit, focused: barFocused)
                     .padding(.trailing, m.sidePadding)
                     .padding(.top, 32 * m.unit)
+                    .opacity(barHidden ? 0 : 1)
+                    .offset(y: barHidden ? -24 * m.unit : 0)
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
             }
-            .animation(.easeInOut(duration: 0.45), value: apps.isEmpty ? "" : apps[layout.selected].id)
-            .animation(.spring(duration: 0.5, bounce: 0.1), value: layout.row)
-            .animation(.spring(duration: 0.3, bounce: 0.2), value: barFocused)
+            .task(id: apps.isEmpty ? "" : apps[layout.selected].id) {
+                guard !apps.isEmpty else { return }
+                let id = apps[layout.selected].id
+                // The first time there's nothing to fade from.
+                guard shelfID != nil else { return shelfID = id }
+                try? await Task.sleep(for: Self.shelfSettle)
+                guard !Task.isCancelled, shelfID != id else { return }
+                withAnimation(Motion.crossfade) { shelfID = id }
+            }
+            .animation(Motion.scroll, value: layout.row)
+            .animation(Motion.focus, value: barFocused)
         }
-        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { model.launcherFrame = $0 }
+        // The laid-out size, not the on-screen one: the launcher is scaled while an app zooms out
+        // of it or a screen recedes it, and icon frames are worked out from the unscaled layout.
+        .onGeometryChange(for: CGRect.self) { CGRect(origin: $0.frame(in: .global).origin, size: $0.size) } action: {
+            model.launcherFrame = $0
+        }
     }
 }
 
@@ -100,7 +125,7 @@ private struct TopBar: View {
         HStack(spacing: 28 * unit) {
             TimelineView(.everyMinute) { ctx in
                 Text(ctx.date, format: .dateTime.hour().minute())
-                    .font(.system(size: 30 * unit, weight: .medium, design: .rounded))
+                    .font(.system(size: 30 * unit, weight: .medium))
                     .monospacedDigit()
                     .foregroundStyle(.white.opacity(0.85))
                     .shadow(color: .black.opacity(0.5), radius: 6 * unit)
@@ -111,6 +136,7 @@ private struct TopBar: View {
                 .frame(width: 64 * unit, height: 64 * unit)
                 .glassSurface(Circle(), tint: focused ? .white.opacity(0.92) : nil, interactive: true)
                 .scaleEffect(focused ? 1.18 : 1)
+                .pressEffect(trigger: model.presses, active: focused)
                 .contentShape(Circle())
                 .onTapGesture { model.openSettingsScreen() }
                 .onHover { if $0 { model.hoverBar() } }
@@ -127,7 +153,7 @@ struct EmptyLauncher: View {
             Image(systemName: "square.grid.2x2")
                 .font(.system(size: 72 * unit, weight: .light))
             Text("No apps on the Home Screen")
-                .font(.system(size: 40 * unit, weight: .bold, design: .rounded))
+                .font(.system(size: 40 * unit, weight: .bold))
             Text("Open Settings to show or add apps.")
                 .font(.system(size: 24 * unit))
                 .foregroundStyle(.white.opacity(0.6))
