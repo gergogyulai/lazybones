@@ -3,10 +3,9 @@ import SwiftUI
 
 // MARK: - View
 
-/// The 2021+ Siri Remote: aluminium body, black clickpad and buttons, Siri on the right side.
+/// The 2021+ Siri Remote: aluminium body, black clickpad and buttons, Siri on the right side. Just
+/// the device; `RemoteWindowContent` puts it in its window.
 struct RemoteView: View {
-    static let windowSize = CGSize(width: 210, height: 600)
-
     @EnvironmentObject var sim: RemoteSimulator
 
     private let bodySize = CGSize(width: 150, height: 520)
@@ -17,7 +16,7 @@ struct RemoteView: View {
         ZStack(alignment: .topTrailing) {
             remoteBody
             // Siri, on the right edge.
-            SideButton(pressed: sim.pressed.contains(.siri))
+            SideButton(pressed: sim.isDown(.siri))
                 .offset(x: 4, y: 180)
                 .pressable(.siri, sim)
             Text(RemoteSimulator.Button.siri.keyLabel)
@@ -25,8 +24,6 @@ struct RemoteView: View {
                 .offset(x: -8, y: 212)
         }
         .frame(width: bodySize.width + 4, height: bodySize.height)
-        .padding(.top, 36)
-        .frame(width: Self.windowSize.width, height: Self.windowSize.height, alignment: .top)
     }
 
     private var remoteBody: some View {
@@ -35,7 +32,7 @@ struct RemoteView: View {
             HStack {
                 Spacer()
                 Text(RemoteSimulator.Button.power.keyLabel).imprint(onDark: false)
-                RoundButton(symbol: "power", key: nil, size: 24, pressed: sim.pressed.contains(.power))
+                RoundButton(symbol: "power", key: nil, size: 24, pressed: sim.isDown(.power))
                     .pressable(.power, sim)
             }
             .padding(.horizontal, 20)
@@ -84,7 +81,7 @@ struct RemoteView: View {
     }
 
     private func round(_ b: RemoteSimulator.Button, _ symbol: String) -> some View {
-        RoundButton(symbol: symbol, key: b.keyLabel, size: button, pressed: sim.pressed.contains(b))
+        RoundButton(symbol: symbol, key: b.keyLabel, size: button, pressed: sim.isDown(b))
             .pressable(b, sim)
     }
 }
@@ -94,8 +91,11 @@ private struct RoundButton: View {
     let key: String?
     let size: CGFloat
     let pressed: Bool
+    @AppStorage(RemoteSimulator.Preference.showsKeys) private var showsKeys = true
 
     var body: some View {
+        // The symbol moves up to make room for the key under it, and is centred without one.
+        let labelled = key != nil && showsKeys
         ZStack {
             Circle()
                 .fill(LinearGradient(colors: pressed ? [Color(white: 0.05), Color(white: 0.1)]
@@ -106,11 +106,12 @@ private struct RoundButton: View {
             Image(systemName: symbol)
                 .font(.system(size: size * 0.34, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.92))
-                .offset(y: key == nil ? 0 : -3)
+                .offset(y: labelled ? -3 : 0)
             if let key {
                 Text(key).imprint().offset(y: size * 0.3)
             }
         }
+        .animation(.easeOut(duration: 0.15), value: labelled)
         .frame(width: size, height: size)
         .scaleEffect(pressed ? 0.94 : 1)
         .animation(.easeOut(duration: 0.08), value: pressed)
@@ -119,12 +120,13 @@ private struct RoundButton: View {
 
 private struct VolumeRocker: View {
     @EnvironmentObject var sim: RemoteSimulator
+    @AppStorage(RemoteSimulator.Preference.showsKeys) private var showsKeys = true
     let width: CGFloat
     let height: CGFloat
 
     var body: some View {
-        let upPressed = sim.pressed.contains(.volumeUp)
-        let downPressed = sim.pressed.contains(.volumeDown)
+        let upPressed = sim.isDown(.volumeUp)
+        let downPressed = sim.isDown(.volumeDown)
         VStack(spacing: 0) {
             half("plus", RemoteSimulator.Button.volumeUp, pressed: upPressed)
             half("minus", RemoteSimulator.Button.volumeDown, pressed: downPressed)
@@ -142,10 +144,12 @@ private struct VolumeRocker: View {
     }
 
     private func half(_ symbol: String, _ b: RemoteSimulator.Button, pressed: Bool) -> some View {
+        // The key only takes room when it's shown, so without it the symbol is centred.
         VStack(spacing: 3) {
             Image(systemName: symbol).font(.system(size: 15, weight: .semibold)).foregroundStyle(.white.opacity(0.92))
-            Text(b.keyLabel).imprint()
+            if showsKeys { Text(b.keyLabel).imprint().transition(.opacity) }
         }
+        .animation(.easeOut(duration: 0.15), value: showsKeys)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(pressed ? Color.black.opacity(0.35) : .clear)
         .contentShape(Rectangle())
@@ -191,8 +195,8 @@ private struct Clickpad: View {
                 .shadow(color: .black.opacity(0.3), radius: 1.5, y: 1)
             // The inner area that clicks as Select.
             Circle()
-                .strokeBorder(.white.opacity(sim.pressed.contains(.select) ? 0.25 : 0.06), lineWidth: 1)
-                .background(Circle().fill(.white.opacity(sim.pressed.contains(.select) ? 0.08 : 0)))
+                .strokeBorder(.white.opacity(sim.isDown(.select) ? 0.25 : 0.06), lineWidth: 1)
+                .background(Circle().fill(.white.opacity(sim.isDown(.select) ? 0.08 : 0)))
                 .frame(width: size * 0.5, height: size * 0.5)
             Text(RemoteSimulator.Button.select.keyLabel).imprint()
 
@@ -213,6 +217,7 @@ private struct Clickpad: View {
         .scaleEffect(isClicked ? 0.985 : 1)
         .animation(.easeOut(duration: 0.08), value: isClicked)
         .contentShape(Circle())
+        .help("Click the centre to select, the ring for a direction (hold to repeat). Drag, scroll with two fingers or press ⇧ arrows to swipe.")
         .gesture(
             DragGesture(minimumDistance: 0)
                 .onChanged(changed)
@@ -221,7 +226,7 @@ private struct Clickpad: View {
     }
 
     private var isClicked: Bool {
-        [RemoteSimulator.Button.up, .down, .left, .right, .select].contains { sim.pressed.contains($0) }
+        [RemoteSimulator.Button.up, .down, .left, .right, .select].contains { sim.isDown($0) }
     }
 
     private func ringMark(_ b: RemoteSimulator.Button) -> some View {
@@ -232,7 +237,7 @@ private struct Clickpad: View {
         case .left: CGSize(width: -r, height: 0)
         default: CGSize(width: r, height: 0)
         }
-        let on = sim.pressed.contains(b)
+        let on = sim.isDown(b)
         return ZStack {
             Circle().fill(.white.opacity(on ? 0.16 : 0)).frame(width: 30, height: 30).blur(radius: 4)
             Text(b.keyLabel).imprint().opacity(on ? 1 : 0.9)
@@ -249,6 +254,7 @@ private struct Clickpad: View {
 
     private func changed(_ v: DragGesture.Value) {
         finger = v.location
+        defer { reportRest(v.location) }
         switch mode {
         case .idle:
             let b = region(at: v.startLocation)
@@ -259,6 +265,8 @@ private struct Clickpad: View {
                 try? await Task.sleep(for: .milliseconds(350))
                 guard !Task.isCancelled, case .pending(b) = mode else { return }
                 mode = .holding(b)
+                // A click takes the finger's rest away, as on the hardware.
+                sim.rest(nil)
                 sim.down(b)
             }
         case .pending:
@@ -287,8 +295,15 @@ private struct Clickpad: View {
         }
     }
 
+    /// Where the finger rests from where focus last moved, in swipe steps, for the icon's tilt.
+    private func reportRest(_ p: CGPoint) {
+        if case .holding = mode { return }
+        sim.rest(SIMD2(Float((p.x - anchor.x) / step), Float((anchor.y - p.y) / step)))
+    }
+
     private func ended() {
         holdTask?.cancel()
+        sim.rest(nil)
         switch mode {
         case let .pending(b): sim.tap(b)
         case let .holding(b): sim.up(b)
@@ -311,9 +326,18 @@ private extension View {
 }
 
 private extension Text {
-    /// The tiny keybind printed on a button.
+    /// The tiny keybind printed on a button, unless key labels are switched off.
     func imprint(onDark: Bool = true) -> some View {
         font(.system(size: 7.5, weight: .semibold, design: .rounded))
             .foregroundStyle(onDark ? Color.white.opacity(0.42) : Color.black.opacity(0.35))
+            .modifier(KeyLabelVisibility())
+    }
+}
+
+private struct KeyLabelVisibility: ViewModifier {
+    @AppStorage(RemoteSimulator.Preference.showsKeys) private var shows = true
+
+    func body(content: Content) -> some View {
+        content.opacity(shows ? 1 : 0).animation(.easeOut(duration: 0.15), value: shows)
     }
 }
