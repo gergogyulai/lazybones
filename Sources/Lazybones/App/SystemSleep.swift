@@ -6,6 +6,6 @@ enum SystemSleep {
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/usr/bin/pmset")
         p.arguments = ["displaysleepnow"]
-        do { try p.run() } catch { NSLog("Lazybones: could not sleep displays (\(error))") }
+        do { try p.run() } catch { Log.error("could not sleep displays (\(error))") }
     }
 }

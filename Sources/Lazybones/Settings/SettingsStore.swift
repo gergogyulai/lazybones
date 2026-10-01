@@ -12,7 +12,7 @@ struct SettingsStore {
         } catch {
             // Settings this build can't read: set them aside rather than silently overwriting them.
             defaults.set(data, forKey: key + ".unreadable")
-            NSLog("Lazybones: unreadable settings, using defaults (\(error))")
+            Log.error("unreadable settings, using defaults (\(error))")
             return LauncherSettings()
         }
     }
@@ -21,7 +21,17 @@ struct SettingsStore {
         do {
             defaults.set(try JSONEncoder().encode(settings), forKey: key)
         } catch {
-            NSLog("Lazybones: could not save settings (\(error))")
+            Log.error("could not save settings (\(error))")
         }
+    }
+}
+
+extension SettingsStore {
+    /// Default settings in a domain of their own, emptied first, for `--fresh-settings`.
+    static func fresh() -> SettingsStore {
+        let suite = "dev.lull.lazybones.fresh"
+        let defaults = UserDefaults(suiteName: suite) ?? .standard
+        defaults.removePersistentDomain(forName: suite)
+        return SettingsStore(defaults: defaults)
     }
 }

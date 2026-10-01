@@ -87,7 +87,7 @@ final class UISounds {
             do {
                 try engine.start()
             } catch {
-                NSLog("Lazybones: could not start interface sounds (\(error))")
+                Log.error("could not start interface sounds (\(error))", .audio)
             }
         }
 
