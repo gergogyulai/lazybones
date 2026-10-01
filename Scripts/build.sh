@@ -23,6 +23,15 @@ cp "$BIN" "$APP/Contents/MacOS/Lazybones"
 vtool -set-build-version macos "$(sed -n 's/^.*LSMinimumSystemVersion<\/key><string>\([^<]*\).*$/\1/p' Resources/Info.plist)" \
     "$(xcrun --show-sdk-version)" -replace -output "$APP/Contents/MacOS/Lazybones" "$APP/Contents/MacOS/Lazybones"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+# What the About window shows under the version: the commit (marked if the tree had changes),
+# when it was built and the SDK it was built against.
+commit=$(git rev-parse --short HEAD 2>/dev/null || echo unknown)
+[[ -n "$(git status --porcelain 2>/dev/null)" ]] && commit+="-dirty"
+plist() { /usr/libexec/PlistBuddy -c "Add :$1 string $2" "$APP/Contents/Info.plist"; }
+plist LBGitCommit "$commit"
+plist LBBuildDate "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+plist LBBuildSDK "$(xcrun --show-sdk-version)"
+plist LBBuildConfiguration "$config"
 # Drawn by Scripts/make-icon.swift.
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 # Official service logos (where each came from is in Resources/Brands/SOURCES.md).

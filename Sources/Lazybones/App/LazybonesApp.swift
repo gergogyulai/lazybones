@@ -39,6 +39,7 @@ struct LazybonesApp: App {
                 Button("Remote Simulator") { model.simulator.toggle() }.keyboardShortcut("r", modifiers: [.command, .option])
                 Button("Reload") { model.reload() }.keyboardShortcut("r")
             }
+            CommandGroup(replacing: .appInfo) { AboutButton() }
             // ⌘, opens the Settings window below rather than SwiftUI's preferences-style one.
             CommandGroup(replacing: .appSettings) { OpenSettingsButton() }
         }
@@ -51,6 +52,16 @@ struct LazybonesApp: App {
         .windowToolbarStyle(.unified)
         .windowResizability(.contentMinSize)
         .defaultSize(width: 920, height: 760)
+        .defaultPosition(.center)
+        .commandsRemoved()
+
+        // Sized to its content, with only a close button, like the standard About panel.
+        Window("About Lazybones", id: AboutView.windowID) {
+            AboutView().windowMinimizeBehavior(.disabled)
+        }
+        .windowStyle(.hiddenTitleBar)
+        .windowResizability(.contentSize)
+        .restorationBehavior(.disabled)
         .defaultPosition(.center)
         .commandsRemoved()
 

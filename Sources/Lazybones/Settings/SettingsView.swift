@@ -97,9 +97,9 @@ struct OpenSettingsButton: View {
     }
 }
 
-/// Makes the window behave like a Settings window: it opens over the launcher when that's full
+/// Makes a utility window (Settings, About) behave like a Settings window: it opens over the launcher when that's full
 /// screen, on whichever Space is showing, instead of taking a full-screen Space of its own.
-private struct SettingsWindowBehavior: NSViewRepresentable {
+struct SettingsWindowBehavior: NSViewRepresentable {
     func makeNSView(context: Context) -> NSView { WindowWatcher() }
     func updateNSView(_ nsView: NSView, context: Context) {}
 

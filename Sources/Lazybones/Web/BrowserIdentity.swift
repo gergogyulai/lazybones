@@ -4,7 +4,7 @@ import WebKit
 /// How a web view introduces itself to sites.
 enum BrowserIdentity {
     /// The installed Safari's version, so the user agent reads as a current Safari.
-    private static let safariVersion: String =
+    static let safariVersion: String =
         NSDictionary(contentsOfFile: "/Applications/Safari.app/Contents/Info.plist")?["CFBundleShortVersionString"] as? String
         ?? "26.0"
 

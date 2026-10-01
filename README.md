@@ -1,4 +1,4 @@
-> **Early.** Version 0.2, built around one setup: a MacBook on a TV, run with a Siri Remote (USB-C, 2022). There are no releases, so you build it yourself. The site-specific parts (Netflix navigation, YouTube's TV mode) depend on those sites' markup and can break when it changes.
+> **Early.** Version 0.3, built around one setup: a MacBook on a TV, run with a Siri Remote (USB-C, 2022). There are no releases, so you build it yourself. The site-specific parts (Netflix navigation, YouTube's TV mode) depend on those sites' markup and can break when it changes.
 
 <div align="center">
   <br>
