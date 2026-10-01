@@ -53,11 +53,11 @@ final class ControlCenter: ObservableObject {
         outputExpanded = false
         confirmingQuit = false
         refresh()
-        withAnimation(.spring(duration: 0.4, bounce: 0.15)) { isOpen = true }
+        withAnimation(Motion.present) { isOpen = true }
     }
 
     func close() {
-        withAnimation(.easeOut(duration: 0.25)) { isOpen = false }
+        withAnimation(Motion.dismiss) { isOpen = false }
         outputExpanded = false
     }
 
@@ -82,7 +82,7 @@ final class ControlCenter: ObservableObject {
         case .left, .right:
             let step = command == .left ? -1 : 1
             if focus == .volume { changeVolume(by: 6 * step) }
-            else if rows[r].indices.contains(c + step) { withAnimation(focusAnimation) { focus = rows[r][c + step] } }
+            else if rows[r].indices.contains(c + step) { withAnimation(Motion.focus) { focus = rows[r][c + step] } }
         case .select: return activate()
         case .back: return .close
         default: break
@@ -95,10 +95,9 @@ final class ControlCenter: ObservableObject {
         volume = audio.state()
     }
 
-    private let focusAnimation = Animation.spring(duration: 0.25, bounce: 0.2)
 
     private func move(to row: Int, from col: Int) {
-        withAnimation(focusAnimation) { focus = rows[row][min(col, rows[row].count - 1)] }
+        withAnimation(Motion.focus) { focus = rows[row][min(col, rows[row].count - 1)] }
     }
 
     private func activate() -> Action? {
@@ -124,24 +123,24 @@ final class ControlCenter: ObservableObject {
             outputs = AudioOutputs.all()
             currentOutput = AudioOutputs.defaultID()
             outputFocus = outputs.firstIndex { $0.id == currentOutput } ?? 0
-            withAnimation(.spring(duration: 0.35, bounce: 0.1)) { outputExpanded = true }
+            withAnimation(Motion.expand) { outputExpanded = true }
         }
         return nil
     }
 
     private func handleOutputList(_ command: RemoteCommand) -> Action? {
         switch command {
-        case .up: withAnimation(focusAnimation) { outputFocus = max(0, outputFocus - 1) }
-        case .down: withAnimation(focusAnimation) { outputFocus = min(outputs.count - 1, outputFocus + 1) }
+        case .up: withAnimation(Motion.focus) { outputFocus = max(0, outputFocus - 1) }
+        case .down: withAnimation(Motion.focus) { outputFocus = min(outputs.count - 1, outputFocus + 1) }
         case .select:
             if outputs.indices.contains(outputFocus) {
                 AudioOutputs.setDefault(outputs[outputFocus].id)
                 currentOutput = AudioOutputs.defaultID()
                 volume = audio.state()
             }
-            withAnimation(.spring(duration: 0.35, bounce: 0.1)) { outputExpanded = false }
+            withAnimation(Motion.expand) { outputExpanded = false }
         case .back:
-            withAnimation(.spring(duration: 0.35, bounce: 0.1)) { outputExpanded = false }
+            withAnimation(Motion.expand) { outputExpanded = false }
         default: break
         }
         return nil

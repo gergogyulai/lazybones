@@ -44,10 +44,10 @@ final class VolumeController: ObservableObject {
         hideTask = Task {
             if delay > .zero { try? await Task.sleep(for: delay) }
             guard let state = router.state() else { return }
-            withAnimation(.spring(duration: 0.3)) { hud = state }
+            withAnimation(Motion.present) { hud = state }
             try? await Task.sleep(for: .seconds(2))
             guard !Task.isCancelled else { return }
-            withAnimation(.easeOut(duration: 0.3)) { hud = nil }
+            withAnimation(Motion.dismiss) { hud = nil }
         }
     }
 }

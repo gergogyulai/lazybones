@@ -35,11 +35,11 @@ final class AppSwitcher: ObservableObject {
     func open(_ apps: [Service]) {
         self.apps = apps
         focus = 0
-        withAnimation(.spring(duration: 0.45, bounce: 0.1)) { isOpen = true }
+        withAnimation(Motion.present) { isOpen = true }
     }
 
     func close() {
-        withAnimation(.easeOut(duration: 0.25)) { isOpen = false }
+        withAnimation(Motion.dismiss) { isOpen = false }
     }
 
     func setSnapshot(_ image: NSImage?, for id: String) {
@@ -50,7 +50,7 @@ final class AppSwitcher: ObservableObject {
     func remove(_ id: String) {
         snapshots[id] = nil
         guard let i = apps.firstIndex(where: { $0.id == id }) else { return }
-        withAnimation(.spring(duration: 0.35, bounce: 0.1)) {
+        withAnimation(Motion.expand) {
             apps.remove(at: i)
             focus = min(focus, max(apps.count - 1, 0))
         }
@@ -59,8 +59,8 @@ final class AppSwitcher: ObservableObject {
     func handle(_ command: RemoteCommand) -> Action? {
         let app = apps.indices.contains(focus) ? apps[focus] : nil
         switch command {
-        case .left: withAnimation(.spring(duration: 0.3, bounce: 0.15)) { focus = max(0, focus - 1) }
-        case .right: withAnimation(.spring(duration: 0.3, bounce: 0.15)) { focus = min(apps.count - 1, focus + 1) }
+        case .left: withAnimation(Motion.focus) { focus = max(0, focus - 1) }
+        case .right: withAnimation(Motion.focus) { focus = min(apps.count - 1, focus + 1) }
         case .up: if let app { return .quit(app) }
         case .select: return app.map(Action.resume) ?? .dismiss
         case .back: return .dismiss

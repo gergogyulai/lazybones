@@ -90,12 +90,12 @@ final class SettingsScreen: ObservableObject {
         row = 0
         inSidebar = true
         updateDiscovery()
-        withAnimation(.spring(duration: 0.45, bounce: 0.1)) { isOpen = true }
+        withAnimation(Motion.present) { isOpen = true }
     }
 
     func close() {
         discovery.stop()
-        withAnimation(.easeOut(duration: 0.25)) { isOpen = false }
+        withAnimation(Motion.dismiss) { isOpen = false }
     }
 
     func select(page: Page) {
@@ -106,7 +106,7 @@ final class SettingsScreen: ObservableObject {
     }
 
     func handle(_ command: RemoteCommand) {
-        let animation = Animation.spring(duration: 0.25, bounce: 0.2)
+        let animation = Motion.focus
         if inSidebar {
             let pages = Page.allCases
             let i = pages.firstIndex(of: page) ?? 0
@@ -153,7 +153,7 @@ final class SettingsScreen: ObservableObject {
 
     private func enterRows() {
         guard let first = rows.firstIndex(where: \.focusable) else { return }
-        withAnimation(.spring(duration: 0.25, bounce: 0.2)) {
+        withAnimation(Motion.focus) {
             inSidebar = false
             row = first
         }
@@ -164,7 +164,7 @@ final class SettingsScreen: ObservableObject {
         var i = row + delta
         while rows.indices.contains(i) {
             if rows[i].focusable {
-                withAnimation(.spring(duration: 0.25, bounce: 0.2)) { row = i }
+                withAnimation(Motion.focus) { row = i }
                 return
             }
             i += delta

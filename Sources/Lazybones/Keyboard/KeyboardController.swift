@@ -72,7 +72,7 @@ final class KeyboardController: ObservableObject {
             let first = rows.firstIndex { $0.contains { $0.kind == .char } } ?? 0
             place(rows, first, 0)
         }
-        if !isVisible { withAnimation(.spring(duration: 0.45, bounce: 0.12)) { isVisible = true } }
+        if !isVisible { withAnimation(Motion.present) { isVisible = true } }
     }
 
     /// Focus left the field. Waits a moment, since moving between fields blurs one before focusing the next.
@@ -97,7 +97,7 @@ final class KeyboardController: ObservableObject {
     func hide() {
         hideTask?.cancel()
         guard isVisible else { return }
-        withAnimation(.spring(duration: 0.35, bounce: 0)) { isVisible = false }
+        withAnimation(Motion.dismiss) { isVisible = false }
     }
 
     /// Closes the keyboard and takes focus off the field, so it opens again only when selected.
@@ -237,7 +237,7 @@ final class KeyboardController: ObservableObject {
     private func set(_ rows: [[Key]], _ r: Int, _ i: Int, updateX: Bool) {
         focusRow = r
         if updateX { preferredX = Self.centers(rows[r])[i] }
-        withAnimation(.spring(duration: 0.22, bounce: 0.25)) { focus = rows[r][i].id }
+        withAnimation(Motion.focus) { focus = rows[r][i].id }
     }
 
     private func place(_ rows: [[Key]], _ r: Int, _ i: Int) {
