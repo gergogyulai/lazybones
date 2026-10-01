@@ -66,6 +66,10 @@ public final class SiriRemote {
     }
 
     public var onEvent: ((RemoteEvent) -> Void)?
+    /// Where a finger resting on the touch surface sits relative to where focus last moved, in
+    /// steps (-1...1 on each axis, x right and y up), or nil when it lifts or clicks. tvOS tilts
+    /// the focused item by this, so it seems to move under your thumb.
+    public var onTouchRest: ((SIMD2<Float>?) -> Void)?
     public var onStatusChange: ((Status) -> Void)?
     /// Human-readable notes for debugging, e.g. a button this module doesn't recognize yet.
     public var onDiagnostic: ((String) -> Void)?
@@ -97,6 +101,7 @@ public final class SiriRemote {
         buttons.onHeldChanged = { [weak self] held in self?.touch.suppressed = held }
         buttons.onDevicesChanged = { [weak self] in self?.refreshStatus() }
         touch.onSwipe = { [weak self] in self?.onEvent?(RemoteEvent(command: $0, source: .swipe)) }
+        touch.onRest = { [weak self] in self?.onTouchRest?($0) }
         touch.onConnectedChanged = { [weak self] in self?.refreshStatus() }
         battery.onChange = { [weak self] in self?.refreshStatus() }
 

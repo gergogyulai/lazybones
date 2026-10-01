@@ -1,4 +1,5 @@
 import Foundation
+import simd
 
 /// The touch surface, read through MultitouchSupport (private framework): the remote registers as a
 /// multitouch device, so touches never show up as HID reports.
@@ -8,11 +9,19 @@ import Foundation
 @MainActor
 final class TouchSurface {
     var onSwipe: ((RemoteCommand) -> Void)?
+    /// Where the finger rests relative to where focus last moved, in steps (-1...1 on each axis, y
+    /// up), or nil once it lifts or clicks. What tvOS tilts the focused item by.
+    var onRest: ((SIMD2<Float>?) -> Void)?
     var onConnectedChanged: (() -> Void)?
     /// Set while a physical button is held; a click shouldn't also register as a swipe.
     var suppressed = false {
-        didSet { if suppressed { active?.spent = true } }
+        didSet {
+            guard suppressed, active?.spent == false else { return }
+            active?.spent = true
+            rest(nil)
+        }
     }
+    private var lastRest: SIMD2<Float>?
     private(set) var connected = false {
         didSet { if connected != oldValue { onConnectedChanged?() } }
     }
@@ -71,10 +80,12 @@ final class TouchSurface {
         guard let p = frame.point else {
             if let t = active { finish(t, at: frame.time) }
             active = nil
+            rest(nil)
             return
         }
         guard var t = active else {
             active = Touch(anchor: p, start: p, last: p, began: frame.time, spent: suppressed)
+            if !suppressed { rest(.zero) }
             return
         }
         defer { active = t }
@@ -87,6 +98,16 @@ final class TouchSurface {
             t.anchor = p
             t.emitted = true
         }
+        rest(SIMD2(p.x - t.anchor.x, p.y - t.anchor.y) / step)
+    }
+
+    /// Reports the resting offset, skipping changes too small to see: frames arrive at over 100 Hz.
+    private func rest(_ offset: SIMD2<Float>?) {
+        let offset = offset.map { simd_clamp($0, SIMD2(repeating: -1), SIMD2(repeating: 1)) }
+        if let offset, let lastRest, simd_distance(offset, lastRest) < 0.02 { return }
+        guard offset != lastRest else { return }
+        lastRest = offset
+        onRest?(offset)
     }
 
     private func finish(_ t: Touch, at time: TimeInterval) {
