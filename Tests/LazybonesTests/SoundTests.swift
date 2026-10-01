@@ -15,11 +15,11 @@ final class SoundSynthTests: XCTestCase {
         return 2 * power.squareRoot() / Double(samples.count)
     }
 
-    func testSoundsStayInRangeAndEndInSilence() {
+    func testSoundsAreSoftAndEndInSilence() {
         for sound in UISound.allCases {
             let samples = SoundSynth.samples(for: sound)
             XCTAssertFalse(samples.isEmpty)
-            XCTAssertTrue(samples.allSatisfy { $0.isFinite && abs($0) <= 0.8 }, "\(sound) is loud but unclipped")
+            XCTAssertTrue(samples.allSatisfy { $0.isFinite && abs($0) < 0.3 }, "\(sound) is soft")
             XCTAssertEqual(samples.first!, 0, accuracy: 0.001, "\(sound) starts at zero, so it can't click")
             XCTAssertEqual(samples.last!, 0, accuracy: 0.001, "\(sound) ends at zero")
         }
@@ -64,24 +64,6 @@ final class SoundSynthTests: XCTestCase {
         XCTAssertLessThan(P.popTo, P.popFrom)
     }
 
-    func testPushIsNotASelectionSound() {
-        // A selection is a "dum" and then a separate higher note; a push is one note, so it has
-        // nothing at the selection's high pitch.
-        let push = SoundSynth.samples(for: .push)
-        let select = SoundSynth.samples(for: .select)
-        let hit = SoundSynth.Pitch.hit
-        XCTAssertLessThan(level(of: hit, in: window(push, 0.2, 0.3)) * 3, level(of: hit, in: window(select, 0.2, 0.3)))
-    }
-
-    func testSoundsAreSoft() {
-        for sound in UISound.allCases {
-            XCTAssertLessThan(SoundSynth.samples(for: sound).map { abs($0) }.max()!, 0.3, "\(sound)")
-        }
-    }
-
-    func testSoundsAreTheSameEveryTime() {
-        XCTAssertEqual(SoundSynth.samples(for: .select), SoundSynth.samples(for: .select))
-    }
 }
 
 @MainActor

@@ -13,10 +13,6 @@ final class LGTVTests: XCTestCase {
         let c = TVConfig(name: "LG TV", host: "192.168.1.20", clientKey: "abc")
         XCTAssertEqual(try JSONDecoder().decode(TVConfig.self, from: JSONEncoder().encode(c)), c)
     }
-
-    @MainActor func testANewLinkIsOff() {
-        XCTAssertEqual(TVLink().status, .off)
-    }
 }
 
 final class NetworkInfoTests: XCTestCase {

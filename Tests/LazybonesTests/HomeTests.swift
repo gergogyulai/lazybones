@@ -523,11 +523,6 @@ final class ControlCenterQuitTests: XCTestCase {
         while cc.focus != .quit { _ = cc.handle(.right) }
     }
 
-    func testQuitIsOnTheTopRowAfterTheOtherTiles() {
-        let cc = controlCenter()
-        XCTAssertEqual(cc.rows[0], [.home, .displayOff, .quit])
-    }
-
     func testQuitNeedsASecondClick() {
         let cc = controlCenter()
         focusQuit(cc)

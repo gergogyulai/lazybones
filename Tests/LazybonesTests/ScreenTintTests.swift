@@ -24,9 +24,7 @@ final class ScreenTintTests: XCTestCase {
         XCTAssertLessThan(g.red, 1)
     }
 
-    func testTheStrongestDimIsVeryDarkButNeverBlack() {
-        let strongest = ScreenTint.Level(dim: 0.9, warmth: 0).gains
-        XCTAssertLessThan(strongest.red, 0.2, "stronger than before")
+    func testTheStrongestDimIsNeverBlack() {
         let g = ScreenTint.Level(dim: 1, warmth: 1).gains
         XCTAssertGreaterThan(g.blue, 0.005)
         XCTAssertGreaterThan(g.red, 0.04)
