@@ -7,4 +7,8 @@ struct Emby: ServiceModule {
         tint: RGB(0.18, 0.45, 0.17), agent: .safari, spatialNav: true,
         symbol: "server.rack", tagline: "Personal media server",
         accentTint: RGB(0.32, 0.71, 0.29), builtIn: true)
+    let brand: Brand? = Brand(
+        logo: "emby-logo.png", mark: "emby-mark.png",
+        plate: [RGB(hex: 0x2B2B2B), RGB(hex: 0x1C1C1C)], accent: RGB(hex: 0x52B54B),
+        logoWidth: 0.66, shelfHeight: 1.3)
 }

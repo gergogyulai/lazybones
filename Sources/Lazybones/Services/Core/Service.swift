@@ -17,9 +17,13 @@ struct Service: Identifiable, Codable, Equatable {
     /// Built-ins can be hidden but not deleted, so new defaults can be merged into saved settings.
     var builtIn = false
 
-    var color: Color { tint.color }
-    var accent: Color? { accentTint?.color }
-    var gradient: [Color] { [accent ?? color, color] }
+    /// Official artwork, for built-ins that have it. It takes the place of the symbol and the saved
+    /// colors, so a built-in looks right however old the settings it was saved in.
+    var brand: Brand? { builtIn ? ServiceModules.module(for: self).brand : nil }
+
+    var color: Color { brand?.plate.last?.color ?? tint.color }
+    var accent: Color? { brand?.accent.color ?? accentTint?.color }
+    var gradient: [Color] { brand?.colors ?? [accent ?? color, color] }
 
     static func custom() -> Service {
         Service(id: UUID().uuidString, name: "New App", url: URL(string: "https://example.com")!,

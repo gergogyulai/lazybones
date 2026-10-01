@@ -9,6 +9,10 @@ struct Spotify: ServiceModule {
         tint: RGB(0.05, 0.4, 0.2), agent: .safari, spatialNav: true,
         symbol: "music.note", tagline: "Music and podcasts, playing while you browse",
         accentTint: RGB(0.12, 0.84, 0.38), builtIn: true)
+    let brand: Brand? = Brand(
+        logo: "spotify-logo.pdf", mark: "spotify-mark.pdf",
+        plate: [RGB(hex: 0x282828), RGB(hex: 0x121212)], accent: RGB(hex: 0x1ED760),
+        logoWidth: 0.66)
 
     let pausesInBackground = false
 

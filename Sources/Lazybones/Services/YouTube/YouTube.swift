@@ -6,6 +6,10 @@ struct YouTube: ServiceModule {
         tint: RGB(0.8, 0.0, 0.0), agent: .tv, spatialNav: false,
         symbol: "play.rectangle.fill", tagline: "Subscriptions, music and everything in between",
         accentTint: RGB(1.0, 0.2, 0.2), builtIn: true)
+    let brand: Brand? = Brand(
+        logo: "youtube-logo.pdf", mark: "youtube-mark.pdf",
+        plate: [RGB(hex: 0x282828), RGB(hex: 0x0F0F0F)], accent: RGB(hex: 0xFF0033),
+        logoWidth: 0.66)
 
     /// YouTube treats every Tizen TV as low-end and serves its "limited animation" look (solid black
     /// boxes behind text, no gradients or shadows). The app's own debug switch opts back into the full UI.

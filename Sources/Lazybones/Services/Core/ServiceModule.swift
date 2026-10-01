@@ -8,6 +8,8 @@ import WebKit
 protocol ServiceModule: Sendable {
     /// The built-in Home Screen entry. Its `id` is how saved settings find the module again.
     var service: Service { get }
+    /// The service's official logo and colors, which replace the symbol icon.
+    var brand: Brand? { get }
     /// The site does its own remote/keyboard navigation, so Lazybones's spatial navigation is never
     /// added, whatever the saved setting says.
     var handlesNavigation: Bool { get }
@@ -34,6 +36,7 @@ protocol ServiceModule: Sendable {
 }
 
 extension ServiceModule {
+    var brand: Brand? { nil }
     var handlesNavigation: Bool { false }
     var spatialNavScript: String? { nil }
     var scripts: [PageScript] { [] }
