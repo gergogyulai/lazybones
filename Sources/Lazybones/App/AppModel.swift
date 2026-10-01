@@ -202,6 +202,7 @@ final class AppModel: ObservableObject {
         if !options.noExtensions {
             web.extensions = extensions
             extensions.onStatus = { [weak self] in self?.diagnostics.log($0, .ext) }
+            extensions.update(for: settings.services)
         }
         Task {
             if !options.noExtensions { await extensions.loadBundled(inspect: options.extensionDebug) }
@@ -639,8 +640,11 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Opens the Mac's Settings window (⌘,).
-    func openMacSettings() { settingsRequests += 1 }
+    /// Opens the Mac's Settings window (⌘,), at `page` if given.
+    func openMacSettings(at page: SettingsScreen.Page? = nil) {
+        if let page { UserDefaults.standard.set(page.rawValue, forKey: SettingsView.paneKey) }
+        settingsRequests += 1
+    }
 
     /// Opens the debug window (⌥⌘D).
     func openDebugWindow() { debugWindowRequests += 1 }
@@ -672,13 +676,15 @@ final class AppModel: ObservableObject {
 
     private func settingsChanged(from old: LauncherSettings) {
         store.save(settings)
+        extensions.update(for: settings.services)
         applySettings()
         if !settings.keyboard { keyboard.hide() }
         if sleepMode, old.sleepLevel != settings.sleepLevel { tint.set(settings.sleepLevel, animated: false) }
         // A service whose page settings changed gets a fresh web view next time it opens.
         for s in settings.services {
             guard let before = old.services.first(where: { $0.id == s.id }),
-                  before.url != s.url || before.agent != s.agent || before.spatialNav != s.spatialNav else { continue }
+                  before.url != s.url || before.agent != s.agent || before.spatialNav != s.spatialNav
+                    || before.blocksAds != s.blocksAds || before.skipsSponsors != s.skipsSponsors else { continue }
             discard(s.id)
         }
         for s in old.services where !settings.services.contains(where: { $0.id == s.id }) {

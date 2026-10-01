@@ -41,6 +41,9 @@ cp Resources/Brands/*.{pdf,svg,png} "$APP/Contents/Resources/Brands/"
 # The ad blocker ships inside the app. Without it Lazybones still works, just without blocking.
 [[ -d Extensions/uBOLite ]] || Scripts/fetch-ubol.sh || echo "warning: building without uBlock Origin Lite" >&2
 [[ -d Extensions/uBOLite ]] && cp -R Extensions/uBOLite "$APP/Contents/Resources/uBOLite"
+# Likewise SponsorBlock, for YouTube.
+[[ -d Extensions/SponsorBlock ]] || Scripts/fetch-sponsorblock.sh || echo "warning: building without SponsorBlock" >&2
+[[ -d Extensions/SponsorBlock ]] && cp -R Extensions/SponsorBlock "$APP/Contents/Resources/SponsorBlock"
 
 codesign --force --sign - "$APP"
 echo "built $APP"

@@ -113,7 +113,9 @@ struct AboutInfo {
         if let sdk = string("LBBuildSDK") { rows.append(Row(label: "SDK", value: "macOS \(sdk)")) }
         rows.append(Row(label: "macOS", value: "\(os.majorVersion).\(os.minorVersion).\(os.patchVersion)"))
         rows.append(Row(label: "Safari", value: BrowserIdentity.safariVersion))
-        rows.append(Row(label: "uBO Lite", value: Self.ubolVersion(in: resources) ?? "Not bundled"))
+        for e in BundledExtension.allCases {
+            rows.append(Row(label: e.shortName, value: Self.version(of: e, in: resources) ?? "Not bundled"))
+        }
         self.rows = rows
     }
 
@@ -121,9 +123,9 @@ struct AboutInfo {
         (["Lazybones"] + rows.map { "\($0.label): \($0.value)" }).joined(separator: "\n")
     }
 
-    /// The bundled extension's own version, from its manifest.
-    private static func ubolVersion(in resources: URL?) -> String? {
-        guard let url = resources?.appendingPathComponent("uBOLite/manifest.json"),
+    /// A bundled extension's own version, from its manifest.
+    private static func version(of e: BundledExtension, in resources: URL?) -> String? {
+        guard let url = resources?.appendingPathComponent("\(e.rawValue)/manifest.json"),
               let data = try? Data(contentsOf: url),
               let manifest = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
         return manifest["version"] as? String

@@ -44,7 +44,9 @@ final class WebPool: NSObject {
         config.mediaTypesRequiringUserActionForPlayback = []
         config.allowsAirPlayForMediaPlayback = true
         config.preferences.isElementFullscreenEnabled = true
-        config.webExtensionController = extensions?.controller
+        // An app that uses no extension gets none at all.
+        let usesExtensions = extensions?.isUsed(by: s) == true
+        config.webExtensionController = usesExtensions ? extensions?.controller : nil
         BrowserIdentity.configure(config, as: s.agent)
 
         let ucc = config.userContentController
@@ -55,7 +57,7 @@ final class WebPool: NSObject {
         let ownNav = spatialNav ? module.spatialNavScript.map { [PageScript(source: $0, time: .start)] } : nil
         // The service's own hacks come last, and apply to its web view only.
         for script in Scripts.shared(spatialNav: spatialNav && ownNav == nil, pageLog: forwardsAllConsole) + (ownNav ?? [])
-            + module.scripts + module.styles.map(PageScript.style) {
+            + module.scripts + (s.blocksAds ? module.adBlockScripts : []) + module.styles.map(PageScript.style) {
             ucc.addUserScript(script.userScript)
         }
         module.configure(config, for: s)
@@ -66,7 +68,7 @@ final class WebPool: NSObject {
         wv.uiDelegate = self
         BrowserIdentity.apply(to: wv, as: s.agent)
         module.prepare(wv, for: s)
-        extensions?.register(wv)
+        if usesExtensions { extensions?.register(wv) }
         wv.load(URLRequest(url: module.startURL(for: s)))
         views[s.id] = wv
         return wv

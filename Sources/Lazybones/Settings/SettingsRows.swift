@@ -9,6 +9,8 @@ extension AppModel {
         switch page {
         case .homeScreen: homeScreenRows
         case .apps: appRows
+        case .adBlocking: adBlockingRows
+        case .sponsorBlock: sponsorBlockRows
         case .sleepMode: sleepModeRows
         case .keyboard: keyboardRows
         case .tv: tvRows
@@ -39,6 +41,36 @@ extension AppModel {
                 })
         } + [
             SettingsRow(id: "apps-note", title: "Click to show or hide an app. Press ◀ or ▶ to move it along the Home Screen. Names, addresses and colors are in Settings on the Mac (⌘,).",
+                        style: .note),
+        ]
+    }
+
+    private var adBlockingRows: [SettingsRow] {
+        extensionRows(.uBlockOriginLite, isOn: \.blocksAds, header: "Block Ads In",
+                      settingsDetail: "Filter lists, filtering modes and your own filters, on the Mac")
+    }
+
+    private var sponsorBlockRows: [SettingsRow] {
+        extensionRows(.sponsorBlock, isOn: \.skipsSponsors, header: "Skip Segments In",
+                      settingsDetail: "Which kinds of segments to skip, mute or mark, on the Mac")
+    }
+
+    /// A bundled extension's status, a way to its own settings on the Mac, and a switch for each app it works on.
+    private func extensionRows(_ e: BundledExtension, isOn: WritableKeyPath<Service, Bool>, header: String,
+                               settingsDetail: String) -> [SettingsRow] {
+        let page: SettingsScreen.Page = e == .uBlockOriginLite ? .adBlocking : .sponsorBlock
+        let apps = settings.services.indices.filter { extensions.applies(e, to: settings.services[$0]) }
+        return [
+            SettingsRow(id: "\(e.id)-status", title: e.name, style: .value(extensions.status(e).summary)),
+            SettingsRow(id: "\(e.id)-settings", title: "\(e.name) Settings", detail: settingsDetail,
+                        style: .button, activate: { [unowned self] in openMacSettings(at: page) }),
+            SettingsRow(id: "\(e.id)-header", title: header, style: .header),
+        ] + apps.map { i in
+            let s = settings.services[i]
+            return SettingsRow(id: "\(e.id)-\(s.id)", title: s.name, style: .toggle(s[keyPath: isOn]),
+                               activate: { [unowned self] in settings.services[i][keyPath: isOn].toggle() })
+        } + [
+            SettingsRow(id: "\(e.id)-note", title: apps.isEmpty ? "It doesn’t work on any of your apps." : "An app reloads when you change this.",
                         style: .note),
         ]
     }

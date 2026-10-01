@@ -15,7 +15,8 @@ Lazybones turns a Mac connected to a TV into something you run from the couch wi
 - 🧭 Remote navigation for any page, plus custom navigation for sites where that isn't enough (Netflix moves through rows, sliders and the details panel like the TV app)
 - ⌨️ An on-screen keyboard that follows whichever text field the page has focused
 - 🔊 Volume routing: a volume press changes the Mac, an LG TV (and the soundbar on its ARC port), or the page's own media volume, whichever can actually do it
-- 🛡️ Ads blocked with uBlock Origin Lite, loaded into the web views
+- 🛡️ Ads blocked with uBlock Origin Lite, app by app, with its own settings in Settings. YouTube's TV app also has the ads taken out of its responses, where uBO Lite's rules don't reach
+- ⏭️ SponsorBlock on YouTube, skipping sponsor segments, intros and the like in the TV app too, with its own settings in Settings
 - 🌙 Sleep Mode: dims the screen and filters blue light for every display and every app, video included
 - 🔈 Navigation sounds, synthesized in code: a warm low "dum" when focus moves, and a "dum-hit" with a brighter, higher note on top when you select (switch them off in Settings > General)
 - 🎛️ Control Center (hold the TV button): home, sleep, volume, output and network
@@ -43,6 +44,7 @@ Lazy Bones was Zenith's 1950 remote, the first TV remote control.
 | YouTube | Served its TV interface by presenting as a Sony Bravia, with answers to its codec queries faked like a 4K TV's |
 | Other services | The shared navigation, plus per-site tweaks where needed |
 | Ad blocker | uBlock Origin Lite, downloaded at build time |
+| SponsorBlock | Its Safari build, downloaded at build time. Works on YouTube's TV interface; its on-screen notices can't be reached with the remote, so set categories to skip automatically. |
 
 ### Don't expect
 
@@ -68,7 +70,7 @@ Scripts/build.sh          # release build to build/Lazybones.app (--debug for a 
 open build/Lazybones.app
 ```
 
-The app icon is drawn in code; `swift Scripts/make-icon.swift` regenerates `Resources/AppIcon.icns`. The build downloads uBlock Origin Lite on first use (`Scripts/fetch-ubol.sh`). If that fails, or you pass `--no-ext` at launch, Lazybones still works, just unblocked. macOS asks for local network access the first time, which is how it finds and talks to the TV.
+The app icon is drawn in code; `swift Scripts/make-icon.swift` regenerates `Resources/AppIcon.icns`. The build downloads uBlock Origin Lite and SponsorBlock on first use (`Scripts/fetch-ubol.sh`, `Scripts/fetch-sponsorblock.sh`; `make ubol` and `make sponsorblock` update them). If that fails, or you pass `--no-ext` at launch, Lazybones still works, just without them. macOS asks for local network access the first time, which is how it finds and talks to the TV.
 
 ```sh
 swift test                # unit tests
@@ -95,7 +97,9 @@ Controls, on the remote or the keyboard equivalents in the Lazybones menu:
 
 ### Settings
 
-Settings come in two forms. The Settings screen on the Home Screen (or in Control Center) is for the remote: apps shown and their order, layout, Sleep Mode, keyboard, TV. Settings on the Mac (⌘,) has the same plus what needs a keyboard: app names, addresses and colors, and TV pairing by address.
+Settings come in two forms. The Settings screen on the Home Screen (or in Control Center) is for the remote: apps shown and their order, layout, Sleep Mode, keyboard, TV. Settings on the Mac (⌘,) has the same plus what needs a keyboard: app names, addresses and colors, TV pairing by address, and the extensions' own settings pages: uBlock Origin Lite's dashboard (filter lists, filtering modes, your own filters) and SponsorBlock's options (which segments to skip, mute or mark).
+
+Ad Blocking and SponsorBlock, in both, switch each extension on or off for each app it works on (SponsorBlock only works on YouTube). An app reloads when you change it. The extensions share one controller, since one loaded twice would keep two sets of settings, so an app that switches one off is denied it by address; for uBlock Origin Lite, whose network rules that doesn't stop, the app's site also goes on uBO Lite's own "no filtering" list, where its dashboard shows it.
 
 To pair a TV, pick it from the discovered list (or enter its address) and accept the prompt on the screen. Volume steps reach a soundbar on HDMI ARC through the TV. Outputs with no volume control of their own and no TV fall back to the apps' volume.
 
@@ -110,7 +114,7 @@ Run `Lazybones.app/Contents/MacOS/Lazybones` with any of:
 ```
 --windowed        don't start in full screen
 --log             echo the event log to stdout
---no-ext          don't load the ad blocker
+--no-ext          don't load the extensions (ad blocker, SponsorBlock)
 --remote          show the on-screen remote
 --ext-debug       report the ad blocker's rulesets
 --open <id>       open a service at launch (e.g. youtube)

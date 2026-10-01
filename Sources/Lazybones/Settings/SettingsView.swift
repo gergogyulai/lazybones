@@ -6,8 +6,10 @@ import SwiftUI
 /// forward buttons beside the pane's name in the toolbar.
 struct SettingsView: View {
     static let windowID = "settings"
+    /// Where the pane showing is remembered, which also opens the window at a given pane.
+    static let paneKey = "settingsPane"
 
-    @AppStorage("settingsPane") private var pane = SettingsScreen.Page.homeScreen
+    @AppStorage(paneKey) private var pane = SettingsScreen.Page.homeScreen
     @State private var query = ""
     /// The panes visited before and after this one, for back and forward.
     @State private var back: [SettingsScreen.Page] = []
@@ -60,6 +62,8 @@ struct SettingsView: View {
         switch pane {
         case .homeScreen: HomeScreenSettings()
         case .apps: AppsSettings()
+        case .adBlocking: AdBlockingSettings()
+        case .sponsorBlock: SponsorBlockSettings()
         case .sleepMode: SleepSettings()
         case .keyboard: KeyboardSettings()
         case .tv: TVSettings()

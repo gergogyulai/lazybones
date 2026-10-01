@@ -5,7 +5,7 @@
 #   make ctl ARGS="press down"
 
 .DEFAULT_GOAL := help
-.PHONY: help build app release run test logs ctl hud icon ubol clean
+.PHONY: help build app release run test logs ctl hud icon ubol sponsorblock clean
 
 help: ## List the targets
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk -F ':.*## ' '{printf "  make %-9s %s\n", $$1, $$2}'
@@ -42,6 +42,9 @@ icon: ## Redraw Resources/AppIcon.icns
 
 ubol: ## Download the latest uBlock Origin Lite
 	Scripts/fetch-ubol.sh
+
+sponsorblock: ## Download the latest SponsorBlock
+	Scripts/fetch-sponsorblock.sh
 
 clean: ## Remove build products
 	rm -rf .build build Tools/RemoteHUD/RemoteHUD

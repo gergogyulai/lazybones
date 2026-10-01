@@ -22,6 +22,68 @@ struct YouTube: ServiceModule {
 
     let scripts = [PageScript(source: cobaltCapabilities, time: .start)]
 
+    let adBlockScripts = [PageScript(source: stripAds, time: .start)]
+
+    /// uBlock Origin Lite's YouTube rules are written for the desktop and mobile sites. The TV app
+    /// gets its ads in the same JSON as everything else: ad breaks in the player response
+    /// (`adPlacements`, `playerAds`, `adSlots`), and a masthead and ad tiles among the Home rows.
+    /// This takes them out of every response the page parses, before the app sees them, and reports
+    /// how many it has removed to the debug overlay as "ads removed".
+    private static let stripAds = #"""
+    (() => {
+      if (window.top !== window || window.__lazybonesStripAds || !/(^|\.)youtube\.com$/.test(location.hostname)) return;
+      window.__lazybonesStripAds = true;
+      const post = (k, v) => { try { webkit.messageHandlers.lazybones.postMessage({ k, v: String(v) }); } catch (_) {} };
+
+      // Player response fields that schedule ads: without them the video plays as if it had none.
+      const AD_FIELDS = ['adPlacements', 'playerAds', 'adSlots'];
+      // Items in a list (Home's rows, a shelf's tiles) that are ads.
+      const AD_ITEMS = ['tvMastheadRenderer', 'adSlotRenderer'];
+      const MENTIONS_ADS = /"(adPlacements|playerAds|adSlots|tvMastheadRenderer|adSlotRenderer)"/;
+
+      let removed = 0;
+      const strip = (node, depth) => {
+        if (depth > 64 || node === null || typeof node !== 'object') return;
+        if (Array.isArray(node)) {
+          for (let i = node.length - 1; i >= 0; i--) {
+            const item = node[i];
+            if (item && typeof item === 'object' && AD_ITEMS.some(k => k in item)) { node.splice(i, 1); removed++; }
+            else strip(item, depth + 1);
+          }
+          return;
+        }
+        for (const k of AD_FIELDS) if (k in node) { delete node[k]; removed++; }
+        for (const k in node) strip(node[k], depth + 1);
+      };
+      const cleaned = new WeakSet();
+      const clean = value => {
+        if (value === null || typeof value !== 'object' || cleaned.has(value)) return value;
+        cleaned.add(value);
+        const before = removed;
+        strip(value, 0);
+        if (removed !== before) post('ads removed', removed);
+        return value;
+      };
+
+      // Responses read as text and parsed, the TV app's usual way.
+      const parse = JSON.parse;
+      JSON.parse = function (text, reviver) {
+        const value = parse.call(this, text, reviver);
+        return typeof text === 'string' && MENTIONS_ADS.test(text) ? clean(value) : value;
+      };
+      // fetch(...).json(), through the parse above.
+      Response.prototype.json = function () { return this.text().then(t => JSON.parse(t)); };
+      // XHR with responseType 'json'.
+      const response = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'response');
+      if (response && response.get) {
+        Object.defineProperty(XMLHttpRequest.prototype, 'response', { ...response, get() {
+          const value = response.get.call(this);
+          return this.responseType === 'json' ? clean(value) : value;
+        } });
+      }
+    })();
+    """#
+
     /// Leanback on Cobalt asks for formats with extra parameters (`width=3840; height=2160;
     /// framerate=60`, `eotf=smpte2084`, `channels=6`) and expects honest answers, including a "no"
     /// for an impossible size. WebKit ignores the parameters and says yes to everything, so the

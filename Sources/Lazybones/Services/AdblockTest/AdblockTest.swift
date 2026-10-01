@@ -13,9 +13,11 @@ struct AdblockTest: ServiceModule {
       if (window.top !== window || location.host !== 'adblock-tester.com') return;
       const post = (k, v) => { try { webkit.messageHandlers.lazybones.postMessage({ k, v: String(v) }); } catch (_) {} };
       // Loaded as a real <script>, since blocking rules are usually scoped to resource type "script".
+      // Not adsbygoogle.js itself: uBlock Origin swaps that for a harmless stand-in, which loads, so
+      // a blocked request would look allowed. Everything else on the host is blocked outright.
       const probeAd = () => {
         const el = document.createElement('script');
-        el.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?lazybones=' + Date.now();
+        el.src = 'https://pagead2.googlesyndication.com/pagead/managed/js/adsense/m202401010101/show_ads_impl.js?lazybones=' + Date.now();
         el.onload = () => { post('ad request', 'allowed'); el.remove(); };
         el.onerror = () => { post('ad request', 'blocked'); el.remove(); };
         document.head.appendChild(el);

@@ -16,6 +16,16 @@ final class SettingsTests: XCTestCase {
         XCTAssertFalse(s.sleepInControlCenter)
     }
 
+    func testAppsSavedBeforeExtensionsWerePerAppStillLoadWithThemOn() throws {
+        let s = try decode(#"""
+        {"services": [{"id": "x", "name": "X", "url": "https://example.com", "tint": {"r": 0, "g": 0, "b": 0},
+                       "agent": "safari", "spatialNav": true, "symbol": "globe", "tagline": "", "builtIn": false}]}
+        """#)
+        XCTAssertEqual(s.services.first?.blocksAds, true)
+        XCTAssertEqual(s.services.first?.skipsSponsors, true)
+        XCTAssertEqual(s.services.first?.symbol, "globe")
+    }
+
     func testHiddenServicesAreLeftOutOfTheHomeScreen() throws {
         var s = LauncherSettings()
         s.hidden = ["netflix"]

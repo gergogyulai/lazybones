@@ -19,6 +19,8 @@ protocol ServiceModule: Sendable {
     var spatialNavScript: String? { get }
     /// Page scripts, injected after the shared ones in `Scripts`.
     var scripts: [PageScript] { get }
+    /// Page scripts for ads uBlock Origin Lite can't reach, injected only while the app blocks ads.
+    var adBlockScripts: [PageScript] { get }
     /// CSS added to every page, e.g. to hide banners that make no sense on a TV.
     var styles: [String] { get }
     /// Whether going Home pauses the page's media. Music keeps playing instead, like Music on an
@@ -40,6 +42,7 @@ extension ServiceModule {
     var handlesNavigation: Bool { false }
     var spatialNavScript: String? { nil }
     var scripts: [PageScript] { [] }
+    var adBlockScripts: [PageScript] { [] }
     var styles: [String] { [] }
     var pausesInBackground: Bool { true }
     var playPauseScript: String? { nil }

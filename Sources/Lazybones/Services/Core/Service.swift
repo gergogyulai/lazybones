@@ -14,6 +14,10 @@ struct Service: Identifiable, Codable, Equatable {
     var symbol = "play.tv.fill"
     var tagline = ""
     var accentTint: RGB? = nil
+    /// Load uBlock Origin Lite into the app's web view, along with the module's own ad blocking.
+    var blocksAds = true
+    /// Load SponsorBlock, on the sites it works on (YouTube), to skip sponsor segments and the like.
+    var skipsSponsors = true
     /// Built-ins can be hidden but not deleted, so new defaults can be merged into saved settings.
     var builtIn = false
 
@@ -41,6 +45,26 @@ struct Service: Identifiable, Codable, Equatable {
 
     /// Built-ins in Home Screen order, one per module in `ServiceModules.builtIn`.
     static let defaults: [Service] = ServiceModules.builtIn.map(\.service)
+}
+
+extension Service {
+    // Field by field, so apps saved by an older build still load. In an extension, to keep the
+    // memberwise initializer.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id)
+        name = try c.decode(String.self, forKey: .name)
+        url = try c.decode(URL.self, forKey: .url)
+        tint = try c.decode(RGB.self, forKey: .tint)
+        agent = try c.decode(Agent.self, forKey: .agent)
+        spatialNav = try c.decode(Bool.self, forKey: .spatialNav)
+        symbol = try c.decodeIfPresent(String.self, forKey: .symbol) ?? symbol
+        tagline = try c.decodeIfPresent(String.self, forKey: .tagline) ?? tagline
+        accentTint = try c.decodeIfPresent(RGB.self, forKey: .accentTint)
+        blocksAds = try c.decodeIfPresent(Bool.self, forKey: .blocksAds) ?? blocksAds
+        skipsSponsors = try c.decodeIfPresent(Bool.self, forKey: .skipsSponsors) ?? skipsSponsors
+        builtIn = try c.decodeIfPresent(Bool.self, forKey: .builtIn) ?? builtIn
+    }
 }
 
 /// A Codable sRGB color, since SwiftUI's Color isn't.

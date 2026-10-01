@@ -10,6 +10,8 @@ extension SettingsScreen.Page {
         switch self {
         case .homeScreen: .blue
         case .apps: .orange
+        case .adBlocking: .red
+        case .sponsorBlock: .green
         case .sleepMode: .indigo
         case .keyboard: .gray
         case .tv: .teal
@@ -22,6 +24,8 @@ extension SettingsScreen.Page {
         switch self {
         case .homeScreen: "Arrange the app grid and choose what appears above it."
         case .apps: "Choose which apps are on the Home Screen, put them in order, and add any website as an app."
+        case .adBlocking: "Block ads with uBlock Origin Lite, app by app."
+        case .sponsorBlock: "Skip sponsor segments, intros and other parts of YouTube videos, as marked by SponsorBlock’s community."
         case .sleepMode: "Dim the screen and filter out blue light for watching late at night."
         case .keyboard: "The on-screen keyboard that appears when a page’s text field is selected."
         case .tv: "Control an LG TV’s volume and power over the network, since Macs can’t send HDMI-CEC."
@@ -34,6 +38,8 @@ extension SettingsScreen.Page {
         switch self {
         case .homeScreen: ["grid", "columns", "row", "top shelf", "hints", "layout"]
         case .apps: ["netflix", "youtube", "order", "hide", "show", "add", "website", "url", "color", "symbol"]
+        case .adBlocking: ["ads", "adblock", "ublock", "origin", "lite", "filters", "content blocker", "youtube"]
+        case .sponsorBlock: ["sponsor", "skip", "segments", "intro", "outro", "self promotion", "youtube", "extension"]
         case .sleepMode: ["dim", "brightness", "blue light", "night", "warm", "control center"]
         case .keyboard: ["text", "typing", "qwerty", "abc", "suggestions", "history", "search"]
         case .tv: ["lg", "webos", "volume", "power", "pair", "hdmi", "soundbar"]
