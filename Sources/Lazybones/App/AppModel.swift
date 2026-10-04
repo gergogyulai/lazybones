@@ -64,6 +64,7 @@ final class AppModel: ObservableObject {
     let switcher = AppSwitcher()
     let settingsScreen = SettingsScreen()
     let tint = ScreenTint()
+    let keyboardLight = KeyboardBacklight()
     let parallax = Parallax()
     let sounds: UISounds
     let diagnostics: Diagnostics
@@ -654,12 +655,9 @@ final class AppModel: ObservableObject {
         controlCenter.close()
         switch action {
         case .close, .toggleSleepMode: break
-        case .home: goHome()
         case .reload: reload()
-        case .toggleDebug: diagnostics.toggle()
         case .settings: openSettingsScreen()
         case .tvOff: tv.turnOff()
-        case .displayOff: SystemSleep.displays()
         case .quit: NSApp.terminate(nil)
         }
     }
@@ -698,10 +696,15 @@ final class AppModel: ObservableObject {
         sleepMode = on
         controlCenter.sleepModeOn = on
         tint.set(on ? settings.sleepLevel : .off)
+        applySleepKeyboardLight()
         diagnostics.log("sleep mode \(on ? "on" : "off")")
     }
 
     func toggleSleepMode() { setSleepMode(!sleepMode) }
+
+    private func applySleepKeyboardLight() {
+        if sleepMode, let level = settings.sleepKeyboardLevel { keyboardLight.hold(level) } else { keyboardLight.release() }
+    }
 
     func toggleSleepTimer() {
         sleepTimer.toggle()
@@ -738,6 +741,7 @@ final class AppModel: ObservableObject {
         applySettings()
         if !settings.keyboard { keyboard.hide() }
         if sleepMode, old.sleepLevel != settings.sleepLevel { tint.set(settings.sleepLevel, animated: false) }
+        if sleepMode, old.sleepKeyboardLevel != settings.sleepKeyboardLevel { applySleepKeyboardLight() }
         // A service whose page settings changed gets a fresh web view next time it opens.
         for s in settings.services {
             guard let before = old.services.first(where: { $0.id == s.id }),

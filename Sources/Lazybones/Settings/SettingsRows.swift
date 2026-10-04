@@ -154,7 +154,7 @@ extension AppModel {
     }
 
     private var sleepModeRows: [SettingsRow] {
-        [
+        var rows = [
             SettingsRow(id: "sleep", title: "Sleep Mode", detail: "Dims the screen and filters blue light",
                         style: .toggle(sleepMode), activate: { [unowned self] in toggleSleepMode() }),
             SettingsRow(id: "dim", title: "Dimming", style: .slider(settings.sleepDim / LauncherSettings.maxSleepDim, label: percent(settings.sleepDim)),
@@ -166,6 +166,19 @@ extension AppModel {
                         adjust: { [unowned self] in
                             settings.sleepWarmth = min(max((settings.sleepWarmth + Double($0) * 0.1).rounded(toPlaces: 1), 0), 1)
                         }),
+        ]
+        if keyboardLight.isAvailable {
+            rows.append(toggle("keyboard-light-on", "Set Keyboard Brightness", \.sleepSetsKeyboardLight,
+                               detail: "Changes the keyboard backlight while Sleep Mode is on"))
+        }
+        if keyboardLight.isAvailable, settings.sleepSetsKeyboardLight {
+            rows.append(SettingsRow(id: "keyboard-light", title: "Keyboard Brightness",
+                                    style: .slider(settings.sleepKeyboardLight, label: percent(settings.sleepKeyboardLight)),
+                                    adjust: { [unowned self] in
+                                        settings.sleepKeyboardLight = min(max((settings.sleepKeyboardLight + Double($0) * 0.1).rounded(toPlaces: 1), 0), 1)
+                                    }))
+        }
+        return rows + [
             toggle("sleep-cc", "Show in Control Center", \.sleepInControlCenter,
                    detail: "Adds a Sleep Mode tile to Control Center"),
             SettingsRow(id: "sleep-note", title: "Sleep Mode turns off when Lazybones quits.", style: .note),

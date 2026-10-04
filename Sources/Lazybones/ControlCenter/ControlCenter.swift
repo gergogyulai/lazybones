@@ -8,11 +8,11 @@ import SwiftUI
 /// panel come back to AppModel as an `Action`.
 @MainActor
 final class ControlCenter: ObservableObject {
-    enum Item: Hashable { case home, displayOff, tvOff, quit, volume, output, sleepTimer, reload, sleepMode, debug, settings }
-    enum Action { case close, home, displayOff, tvOff, quit, reload, toggleSleepMode, toggleDebug, settings }
+    enum Item: Hashable { case volume, output, sleepTimer, reload, sleepMode, settings, tvOff, quit }
+    enum Action { case close, tvOff, quit, reload, toggleSleepMode, settings }
 
     @Published var isOpen = false
-    @Published var focus = Item.home
+    @Published var focus = Item.volume
     @Published var volume: VolumeState?
     @Published var outputs: [AudioOutputs.Device] = []
     @Published var currentOutput: AudioDeviceID?
@@ -41,17 +41,19 @@ final class ControlCenter: ObservableObject {
         networkMonitor.start()
     }
 
+    /// Volume comes first, since it's what Control Center is opened for most; the power
+    /// actions sit last, away from where focus starts.
     var rows: [[Item]] {
-        [[.home, .displayOff] + (tv.status == .connected ? [.tvOff] : []) + [.quit],
-         [.volume], [.output], [.sleepTimer],
-         (canReload ? [.reload] : []) + (showsSleepMode ? [.sleepMode] : []) + [.debug, .settings]]
+        [[.volume], [.output], [.sleepTimer],
+         (canReload ? [.reload] : []) + (showsSleepMode ? [.sleepMode] : []) + [.settings],
+         (tv.status == .connected ? [.tvOff] : []) + [.quit]]
     }
 
     func open(canReload: Bool, showsSleepMode: Bool, sleepModeOn: Bool) {
         self.canReload = canReload
         self.showsSleepMode = showsSleepMode
         self.sleepModeOn = sleepModeOn
-        focus = .home
+        focus = .volume
         outputExpanded = false
         confirmingQuit = false
         refresh()
@@ -75,7 +77,7 @@ final class ControlCenter: ObservableObject {
         if !(command == .select && focus == .quit) { confirmingQuit = false }
         if outputExpanded { return handleOutputList(command) }
         guard let r = rows.firstIndex(where: { $0.contains(focus) }), let c = rows[r].firstIndex(of: focus) else {
-            focus = .home
+            focus = .volume
             return nil
         }
         switch command {
@@ -105,8 +107,6 @@ final class ControlCenter: ObservableObject {
 
     private func activate() -> Action? {
         switch focus {
-        case .home: return .home
-        case .displayOff: return .displayOff
         case .tvOff: return .tvOff
         case .quit:
             if confirmingQuit { return .quit }
@@ -118,7 +118,6 @@ final class ControlCenter: ObservableObject {
         case .reload: return .reload
         case .sleepMode: return .toggleSleepMode
         case .sleepTimer: sleepTimer.toggle()
-        case .debug: return .toggleDebug
         case .settings: return .settings
         case .volume:
             audio.toggleMute()

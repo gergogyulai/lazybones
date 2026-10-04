@@ -25,6 +25,9 @@ struct LauncherSettings: Codable, Equatable {
     /// Sleep Mode: how far it dims the screen (0...`maxSleepDim`) and how much blue light it filters (0...1).
     var sleepDim = 0.4
     var sleepWarmth = 0.6
+    /// Whether Sleep Mode sets the keyboard backlight on Macs that have one, and to how bright (0...1).
+    var sleepSetsKeyboardLight = false
+    var sleepKeyboardLight = 0.0
     /// Put a Sleep Mode tile in Control Center.
     var sleepInControlCenter = false
 
@@ -34,6 +37,8 @@ struct LauncherSettings: Codable, Equatable {
     static let maxSleepDim = 0.9
 
     var sleepLevel: ScreenTint.Level { ScreenTint.Level(dim: sleepDim, warmth: sleepWarmth) }
+    /// The keyboard backlight level Sleep Mode sets, or nil if it leaves the backlight alone.
+    var sleepKeyboardLevel: Double? { sleepSetsKeyboardLight ? sleepKeyboardLight : nil }
 
     init() {}
 
@@ -55,6 +60,8 @@ struct LauncherSettings: Codable, Equatable {
         keyboardLayout = try c.decodeIfPresent(KeyboardLayout.self, forKey: .keyboardLayout) ?? d.keyboardLayout
         sleepDim = try c.decodeIfPresent(Double.self, forKey: .sleepDim) ?? d.sleepDim
         sleepWarmth = try c.decodeIfPresent(Double.self, forKey: .sleepWarmth) ?? d.sleepWarmth
+        sleepSetsKeyboardLight = try c.decodeIfPresent(Bool.self, forKey: .sleepSetsKeyboardLight) ?? d.sleepSetsKeyboardLight
+        sleepKeyboardLight = try c.decodeIfPresent(Double.self, forKey: .sleepKeyboardLight) ?? d.sleepKeyboardLight
         sleepInControlCenter = try c.decodeIfPresent(Bool.self, forKey: .sleepInControlCenter) ?? d.sleepInControlCenter
     }
 

@@ -27,6 +27,7 @@ final class PressTests: XCTestCase {
     func testAClickInControlCenterPressesTheFocusedTile() {
         let m = model()
         m.toggleControlCenter()
+        press(m, .down) // off Volume, where a click would mute the Mac
         press(m, .select)
         XCTAssertEqual(m.presses, 1)
     }

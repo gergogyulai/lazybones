@@ -40,7 +40,7 @@ extension SettingsScreen.Page {
                       "sponsorblock", "sponsor", "skip", "segments", "intro", "outro"]
         case .adBlocking: ["ads", "adblock", "ublock", "origin", "lite", "filters", "content blocker", "youtube",
                             "level", "trackers", "privacy", "cookies", "consent", "pop-ups", "popups", "notifications", "chat", "social", "ai", "annoyances"]
-        case .sleepMode: ["dim", "brightness", "blue light", "night", "warm", "control center"]
+        case .sleepMode: ["dim", "brightness", "blue light", "night", "warm", "keyboard", "backlight", "control center"]
         case .keyboard: ["text", "typing", "qwerty", "abc", "suggestions", "history", "search"]
         case .tv: ["lg", "webos", "volume", "power", "pair", "hdmi", "soundbar"]
         case .general: ["full screen", "sounds", "debug", "version", "startup"]

@@ -388,7 +388,7 @@ final class AppModelTests: XCTestCase {
     func testOverlaysPushPopAndMakeTheirOwnNavigationSounds() {
         let m = model()
         m.toggleControlCenter()
-        press(m, .right)
+        press(m, .down)
         press(m, .down)
         m.toggleControlCenter()
         XCTAssertEqual(played, [.push, .move, .move, .pop])
@@ -538,8 +538,7 @@ final class ControlCenterQuitTests: XCTestCase {
     }
 
     private func focusQuit(_ cc: ControlCenter) {
-        cc.focus = .home
-        while cc.focus != .quit { _ = cc.handle(.right) }
+        cc.focus = .quit
     }
 
     func testQuitNeedsASecondClick() {

@@ -36,6 +36,26 @@ struct SleepSettings: View {
                     .frame(width: 260)
                 }
             }
+            if model.keyboardLight.isAvailable {
+                Section {
+                    Toggle(isOn: $model.settings.sleepSetsKeyboardLight) {
+                        Text("Set keyboard brightness")
+                        Text("Changes the keyboard backlight while Sleep Mode is on, and puts it back after")
+                    }
+                    LabeledContent("Keyboard brightness") {
+                        Slider(value: $model.settings.sleepKeyboardLight, in: 0...1) {
+                            Text("Keyboard brightness")
+                        } minimumValueLabel: {
+                            Image(systemName: "light.min").accessibilityLabel("Off")
+                        } maximumValueLabel: {
+                            Image(systemName: "light.max").accessibilityLabel("Brightest")
+                        }
+                        .labelsHidden()
+                        .frame(width: 260)
+                    }
+                    .disabled(!model.settings.sleepSetsKeyboardLight)
+                }
+            }
             Section {
                 Toggle(isOn: $model.settings.sleepInControlCenter) {
                     Text("Show in Control Center")

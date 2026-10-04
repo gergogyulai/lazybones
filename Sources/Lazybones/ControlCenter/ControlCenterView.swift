@@ -25,13 +25,6 @@ struct ControlCenterView: View {
 
                 VStack(alignment: .leading, spacing: 18 * u) {
                     header(u)
-                    HStack(spacing: 18 * u) {
-                        smallTile(.home, "house.fill", "Home", u)
-                        smallTile(.displayOff, "power", "Display Off", u)
-                        if tv.status == .connected { smallTile(.tvOff, "tv", "Turn Off TV", u) }
-                        smallTile(.quit, "xmark.circle", cc.confirmingQuit ? "Confirm" : "Quit", u,
-                                  lit: cc.confirmingQuit, litColor: .red, litWhenFocused: true)
-                    }
                     volumeTile(u)
                     outputTile(u)
                     sleepTimerTile(u)
@@ -42,9 +35,12 @@ struct ControlCenterView: View {
                             smallTile(.sleepMode, cc.sleepModeOn ? "moon.zzz.fill" : "moon.zzz", "Sleep Mode", u,
                                       lit: cc.sleepModeOn)
                         }
-                        smallTile(.debug, "ladybug.fill", diagnostics.isVisible ? "Debug On" : "Debug Off", u,
-                                  lit: diagnostics.isVisible)
                         smallTile(.settings, "gearshape.fill", "Settings", u)
+                    }
+                    HStack(spacing: 18 * u) {
+                        if tv.status == .connected { smallTile(.tvOff, "tv", "Turn Off TV", u) }
+                        smallTile(.quit, "xmark.circle", cc.confirmingQuit ? "Confirm Quit" : "Quit", u,
+                                  lit: cc.confirmingQuit, litColor: .red, litWhenFocused: true)
                     }
                 }
                 .padding(28 * u)
