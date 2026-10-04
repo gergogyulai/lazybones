@@ -6,7 +6,7 @@ import WebKit
 struct Spotify: ServiceModule {
     let service = Service(
         id: "spotify", name: "Spotify", url: URL(string: "https://open.spotify.com/")!,
-        tint: RGB(0.05, 0.4, 0.2), agent: .safari, spatialNav: true,
+        tint: RGB(0.05, 0.4, 0.2), agent: .safari, navigation: .spatial,
         symbol: "music.note", tagline: "Music and podcasts, playing while you browse",
         accentTint: RGB(0.12, 0.84, 0.38), builtIn: true)
     let brand: Brand? = Brand(
@@ -15,6 +15,12 @@ struct Spotify: ServiceModule {
         logoWidth: 0.66)
 
     let pausesInBackground = false
+
+    /// uBlock Origin Lite's Spotify filters redirect media requests for `…/audio/` to a silent clip, to
+    /// drop audio ads. Chrome fetches songs by XHR, so there they only catch ads; WebKit loads songs as
+    /// media too, so every track goes silent and Spotify disables its player. Ads and songs can't be
+    /// told apart here, so it gets no ad blocking at all.
+    let allowsAdBlocking = false
 
     /// The player bar's own button is what keeps Spotify's state (and the media session) right; poking
     /// the media element behind its back leaves the UI out of step.

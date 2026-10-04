@@ -38,7 +38,7 @@ struct SettingsRow: Identifiable {
 @MainActor
 final class SettingsScreen: ObservableObject {
     enum Page: String, CaseIterable, Identifiable {
-        case homeScreen, apps, adBlocking, sponsorBlock, sleepMode, keyboard, tv, general
+        case homeScreen, apps, adBlocking, sleepMode, keyboard, tv, general
 
         var id: String { rawValue }
 
@@ -47,7 +47,6 @@ final class SettingsScreen: ObservableObject {
             case .homeScreen: "Home Screen"
             case .apps: "Apps"
             case .adBlocking: "Ad Blocking"
-            case .sponsorBlock: "SponsorBlock"
             case .sleepMode: "Sleep Mode"
             case .keyboard: "Keyboard"
             case .tv: "TV"
@@ -60,7 +59,6 @@ final class SettingsScreen: ObservableObject {
             case .homeScreen: "rectangle.grid.3x2.fill"
             case .apps: "square.grid.2x2.fill"
             case .adBlocking: "shield.lefthalf.filled"
-            case .sponsorBlock: "forward.end.fill"
             case .sleepMode: "moon.zzz.fill"
             case .keyboard: "keyboard.fill"
             case .tv: "tv.fill"
@@ -75,6 +73,8 @@ final class SettingsScreen: ObservableObject {
     @Published private(set) var row = 0
     /// Focus is in the list of pages rather than the rows.
     @Published private(set) var inSidebar = true
+    /// The app whose own settings the Apps page shows in place of the list of apps.
+    @Published private(set) var app: String?
 
     /// Finds TVs while the TV page is showing.
     let discovery = TVDiscovery()
@@ -89,10 +89,13 @@ final class SettingsScreen: ObservableObject {
 
     var rows: [SettingsRow] { rowsProvider(page) }
 
-    func open(page: Page? = nil) {
+    /// Opens at `page`, or with `app`, straight into that app's settings.
+    func open(page: Page? = nil, app: String? = nil) {
         if let page { self.page = page }
+        self.app = self.page == .apps ? app : nil
         row = 0
         inSidebar = true
+        if app != nil { enterRows(animated: false) }
         updateDiscovery()
         withAnimation(Motion.present) { isOpen = true }
     }
@@ -105,6 +108,7 @@ final class SettingsScreen: ObservableObject {
     func select(page: Page) {
         guard page != self.page else { return }
         self.page = page
+        app = nil
         row = 0
         updateDiscovery()
     }
@@ -133,12 +137,12 @@ final class SettingsScreen: ObservableObject {
             if rows.indices.contains(row), let adjust = rows[row].adjust {
                 adjust(step)
             } else if command == .left {
-                withAnimation(animation) { inSidebar = true }
+                stepOut()
             }
         case .select:
             guard rows.indices.contains(row) else { break }
             if let activate = rows[row].activate { activate() } else { rows[row].adjust?(1) }
-        case .back: withAnimation(animation) { inSidebar = true }
+        case .back: stepOut()
         default: break
         }
     }
@@ -155,9 +159,29 @@ final class SettingsScreen: ObservableObject {
     /// Moves focus to a row, e.g. after the row's own action moved it.
     func focus(row i: Int) { row = i }
 
-    private func enterRows() {
-        guard let first = rows.firstIndex(where: \.focusable) else { return }
+    /// Shows an app's own settings in place of the list of apps.
+    func show(app id: String) {
+        guard page == .apps else { return }
+        app = id
+        row = 0
+        enterRows()
+    }
+
+    /// Out of an app's settings back to the list, with focus on that app; otherwise out to the pages.
+    private func stepOut() {
         withAnimation(Motion.focus) {
+            if let app {
+                self.app = nil
+                row = rows.firstIndex { $0.id == app } ?? 0
+            } else {
+                inSidebar = true
+            }
+        }
+    }
+
+    private func enterRows(animated: Bool = true) {
+        guard let first = rows.firstIndex(where: \.focusable) else { return }
+        withAnimation(animated ? Motion.focus : nil) {
             inSidebar = false
             row = first
         }

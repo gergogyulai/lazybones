@@ -273,13 +273,21 @@ private struct Clickpad: View {
             if hypot(v.location.x - anchor.x, v.location.y - anchor.y) > 6 {
                 holdTask?.cancel()
                 mode = .swiping
+                sim.touch(.began, at: surface(anchor))
+                sim.touch(.moved, at: surface(v.location))
                 swipe(v.location)
             }
         case .holding:
             break
         case .swiping:
+            sim.touch(.moved, at: surface(v.location))
             swipe(v.location)
         }
+    }
+
+    /// A point on the clickpad as the touch surface reports it: 0...1 across, y up.
+    private func surface(_ p: CGPoint) -> SIMD2<Float> {
+        SIMD2(Float(p.x / size), Float(1 - p.y / size))
     }
 
     private func swipe(_ p: CGPoint) {
@@ -307,7 +315,8 @@ private struct Clickpad: View {
         switch mode {
         case let .pending(b): sim.tap(b)
         case let .holding(b): sim.up(b)
-        default: break
+        case .swiping: sim.touch(.ended, at: surface(finger ?? anchor))
+        case .idle: break
         }
         mode = .idle
         withAnimation(.easeOut(duration: 0.15)) { finger = nil }

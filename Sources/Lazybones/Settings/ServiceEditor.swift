@@ -64,13 +64,6 @@ struct ServiceEditor: View {
                         Text("Safari").tag(Service.Agent.safari)
                         Text("Smart TV").tag(Service.Agent.tv)
                     }
-                    let handles = ServiceModules.handlesNavigation(draft)
-                    Toggle(isOn: handles ? .constant(false) : $draft.spatialNav) {
-                        Text("Remote navigation")
-                        Text(handles ? "\(draft.name) handles the remote itself."
-                                     : "Moves focus between a desktop site’s links and buttons with the clickpad")
-                    }
-                    .disabled(handles)
                 } header: {
                     Text("Browser")
                 } footer: {
@@ -78,6 +71,8 @@ struct ServiceEditor: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+                // An app already added has these in its own settings, where they apply as they're made.
+                if isNew { NavigationSections(service: $draft) }
             }
             .formStyle(.grouped)
 

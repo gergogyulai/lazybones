@@ -22,6 +22,13 @@ extension AppModel {
         if keyboard.isVisible { overlays.append("keyboard (\(keyboard.field.map { "\($0.kind)" } ?? "no field"))") }
         if showsFailure { overlays.append("failure screen") }
         rows.append(("overlays", overlays.isEmpty ? "none" : overlays.joined(separator: ", ")))
+        if cursor.serviceID != nil {
+            let a = cursor.appearance
+            rows.append(("cursor", "\(a.visible ? "shown" : "hidden") at \(Int(a.point.x)),\(Int(a.point.y))"
+                             + (a.morph > 0.5 ? " on \(Int(a.highlight.width))×\(Int(a.highlight.height))" : "")
+                             + (cursorTakesTouch ? ", following touch" : "")
+                             + ", page at \(Int(a.page.minX)),\(Int(a.page.minY)) \(Int(a.page.width))×\(Int(a.page.height))"))
+        }
 
         for (id, wv) in web.views.sorted(by: { $0.key < $1.key }) {
             var flags: [String] = []
@@ -63,6 +70,17 @@ extension AppModel {
         case let .swipe(directions):
             await send(directions.map { RemoteEvent(command: $0, source: .swipe) })
             return debugStateText
+        case let .drag(dx, dy):
+            let from = SIMD2<Float>(0.5, 0.5)
+            await touchPath { from + SIMD2(dx, dy) * $0 }
+            return debugStateText
+        case let .turn(degrees):
+            // Clockwise from the top of the ring, with y up.
+            await touchPath { t in
+                let a = Float.pi / 2 - degrees * .pi / 180 * t
+                return SIMD2(0.5 + 0.4 * cos(a), 0.5 + 0.4 * sin(a))
+            }
+            return debugStateText
         case let .open(id):
             guard let s = settings.services.first(where: { $0.id == id || $0.name.lowercased() == id.lowercased() }) else {
                 return "error: no service \(id). Known: \(settings.services.map(\.id).joined(separator: ", "))"
@@ -100,6 +118,20 @@ extension AppModel {
             simulator.inject(e)
             try? await Task.sleep(for: .milliseconds(150))
         }
+    }
+
+    /// A finger along `path` (0...1 in, a point on the touch surface out), over a third of a second.
+    private func touchPath(_ path: (Float) -> SIMD2<Float>) async {
+        let steps = 40
+        simulator.touch(.began, at: path(0))
+        for i in 1...steps {
+            try? await Task.sleep(for: .milliseconds(8))
+            simulator.touch(.moved, at: path(Float(i) / Float(steps)))
+        }
+        // Still for a moment before lifting, so a turn doesn't carry on with momentum.
+        try? await Task.sleep(for: .milliseconds(120))
+        simulator.touch(.ended, at: path(1))
+        try? await Task.sleep(for: .milliseconds(300))
     }
 
     var debugStateText: String {

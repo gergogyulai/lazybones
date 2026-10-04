@@ -476,12 +476,31 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(m.settings.services[0].id, second)
     }
 
-    func testTheSettingsScreenShowsAndHidesApps() {
+    func testClickingAnAppInSettingsOpensItsOwnSettingsAndBackReturnsToIt() {
+        let m = model()
+        let id = m.settings.services[2].id
+        m.openSettingsScreen(page: .apps)
+        press(m, .right)
+        press(m, .down); press(m, .down)
+        played = []
+        press(m, .select)
+        XCTAssertEqual(m.settingsScreen.app, id)
+        XCTAssertFalse(m.settingsScreen.inSidebar)
+        press(m, .back)
+        XCTAssertNil(m.settingsScreen.app)
+        XCTAssertEqual(m.settingsScreen.row, 2, "focus goes back to the app it came from")
+        XCTAssertEqual(played, [.push, .pop])
+    }
+
+    func testAnAppsOwnSettingsShowAndHideIt() {
         let m = model()
         let id = m.settings.services[0].id
-        m.settingsRows(for: .apps)[0].activate?()
+        m.openSettingsScreen(page: .apps)
+        m.settingsScreen.show(app: id)
+        let shown = { m.settingsRows(for: .apps).first { $0.id == "app-shown" }! }
+        shown().activate?()
         XCTAssertTrue(m.settings.hidden.contains(id))
-        m.settingsRows(for: .apps)[0].activate?()
+        shown().activate?()
         XCTAssertFalse(m.settings.hidden.contains(id))
     }
 

@@ -21,6 +21,9 @@ protocol ServiceModule: Sendable {
     var scripts: [PageScript] { get }
     /// Page scripts for ads uBlock Origin Lite can't reach, injected only while the app blocks ads.
     var adBlockScripts: [PageScript] { get }
+    /// Whether uBlock Origin Lite can be used here at all. Off for sites its filters break, which then
+    /// never get it, whatever the saved setting says, and have no switch for it.
+    var allowsAdBlocking: Bool { get }
     /// CSS added to every page, e.g. to hide banners that make no sense on a TV.
     var styles: [String] { get }
     /// Whether going Home pauses the page's media. Music keeps playing instead, like Music on an
@@ -43,6 +46,7 @@ extension ServiceModule {
     var spatialNavScript: String? { nil }
     var scripts: [PageScript] { [] }
     var adBlockScripts: [PageScript] { [] }
+    var allowsAdBlocking: Bool { true }
     var styles: [String] { [] }
     var pausesInBackground: Bool { true }
     var playPauseScript: String? { nil }
@@ -82,13 +86,19 @@ struct PageScript: Sendable {
 enum ServiceModules {
     /// Built-in services in Home Screen order.
     static let builtIn: [any ServiceModule] = [
-        YouTube(), Netflix(), DisneyPlus(), PrimeVideo(), HBOMax(), Spotify(), Plex(), Jellyfin(), Emby(),
+        YouTube(), Netflix(), DisneyPlus(), PrimeVideo(), HBOMax(), AppleTV(), SkyShowtime(), ParamountPlus(),
+        Crunchyroll(), Twitch(), TelekomTVGO(),
+        Spotify(), AppleMusic(), YouTubeMusic(), SoundCloud(),
+        Plex(), Jellyfin(), Emby(),
         AdblockTest(), DRMTest(),
     ]
 
-    /// The module for `s`, or a plain one for apps the user added.
     static func handlesNavigation(_ s: Service) -> Bool { module(for: s).handlesNavigation }
 
+    /// How the remote gets around the app's page: as set, unless the site does that itself.
+    static func navigation(for s: Service) -> Navigation { handlesNavigation(s) ? .keys : s.navigation }
+
+    /// The module for `s`, or a plain one for apps the user added.
     static func module(for s: Service) -> any ServiceModule {
         builtIn.first { $0.service.id == s.id } ?? Custom(service: s)
     }

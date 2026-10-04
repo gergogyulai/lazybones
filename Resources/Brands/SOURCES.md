@@ -24,6 +24,21 @@ serves on its own site.
 | `jellyfin-mark.svg` | Same repository: `branding/SVG/icon-transparent.svg` |
 | `emby-logo.png` | [MediaBrowser/Emby.Resources](https://github.com/MediaBrowser/Emby.Resources): `images/Logos/logowhite.png` |
 | `emby-mark.png` | Same repository: `images/Logos/logoicon512.png` |
+| `appletv-logo.svg` | tv.apple.com's inline Apple TV logo (in its devices section, `landing-devices__apple-tv-logo`), with `fill="#fff"` added, since the page colors it with CSS |
+| `skyshowtime-logo.svg` | skyshowtime.com's inline header logo (`data-testid="skyshowtime-logo"`) |
+| `paramount-logo.png` | paramountplus.com's white logo (`/assets/images/intl-landing-page/pplus_marketing_site_logo_white.png`). Colors from the same page. |
+| `crunchyroll-logo.svg` | crunchyroll.com's inline header logo (`data-t="crunchyroll-horizontal-svg"`), with `fill="#FF5E00"` added: the orange the page draws it in |
+| `twitch-logo.svg` | Twitch brand kit, [brand.twitch.com](https://brand.twitch.com): `Twitch-Brand.zip` → `Twitch Logos/01. Twitch Wordmark/02. Flat Wordmark/04. White/twitch_wordmark_flat_white.svg` |
+| `twitch-mark.svg` | Same kit: `Twitch Logos/02. Glitch/04. White/glitch_flat_white.svg` |
+| `tvgo-logo.png` | The Telekom TV GO app's icon (Magyar Telekom), from the App Store listing linked on [telekom.hu's TV GO page](https://www.telekom.hu/lakossagi/szolgaltatasok/televizio/telekom-tvgo), at 1024×1024 from Apple's lookup API. The player at player.telekomtvgo.hu only has it as a 32-pixel favicon. |
+| `tvgo-mark.svg` | The Telekom "T" from the same telekom.hu page (`Telekom-Logo.svg`), with its navy fill made white, as the T appears on magenta |
+| `applemusic-logo.svg` | music.apple.com's inline header logo (`class="logo"`), with `fill="#fff"` added, since the page colors it with CSS |
+| `ytmusic-logo.svg` | music.youtube.com's logo for dark backgrounds (`/img/on_platform_logo_dark.svg`, referenced in its page) |
+| `ytmusic-mark.svg` | Same site: `/img/on_platform_logo.svg` |
+| `soundcloud-logo.svg` | soundcloud.com's inline header logo, with `currentColor` set to the white the page draws it in |
 
 Accent colors are measured from these files: YouTube #FF0033, Netflix #E50914, Spotify #1ED760,
-Plex #EBAF00, Jellyfin #AA5CC3, Emby #52B54B.
+Plex #EBAF00, Jellyfin #AA5CC3, Emby #52B54B, Crunchyroll #FF5E00, YouTube Music #FF0033. The rest
+come from the colors each site renders: its buttons, links and backgrounds (Apple TV #0A84FF,
+SkyShowtime #795FE3, Paramount+ #0064FF, Twitch #9146FF, TV GO #E20074, Apple Music #FA233B,
+SoundCloud #FF5500).

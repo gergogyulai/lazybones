@@ -11,16 +11,6 @@ struct AdBlockingSettings: View {
     }
 }
 
-struct SponsorBlockSettings: View {
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        ExtensionPane(page: .sponsorBlock, bundled: .sponsorBlock, extensions: model.extensions,
-                      isOn: \.skipsSponsors, header: "Skip Segments In",
-                      footer: "An app reloads when you change this. SponsorBlock only works on YouTube. Segments set to skip automatically are skipped without asking; its other notices can’t be reached with the remote.")
-    }
-}
-
 /// A bundled extension: whether it loaded, its own settings page in a sheet, and a switch for
 /// each app it works on.
 private struct ExtensionPane: View {
@@ -76,13 +66,13 @@ private struct ExtensionPane: View {
             }
         }
         .sheet(isPresented: $showingOptions) {
-            OptionsSheet(bundled: bundled, extensions: extensions)
+            ExtensionOptionsSheet(bundled: bundled, extensions: extensions)
         }
     }
 }
 
 /// The extension's own settings page, as its options page would show in a browser.
-private struct OptionsSheet: View {
+struct ExtensionOptionsSheet: View {
     let bundled: BundledExtension
     let extensions: Extensions
     @Environment(\.dismiss) private var dismiss

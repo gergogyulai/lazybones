@@ -26,8 +26,8 @@ struct WebContainer: NSViewRepresentable {
     private func attach(to host: NSView) {
         webView.removeFromSuperview()
         webView.frame = host.bounds
-        webView.autoresizingMask = [.width, .height]
         host.addSubview(webView)
+        host.needsLayout = true
         if takesFocus { DispatchQueue.main.async { webView.window?.makeFirstResponder(webView) } }
     }
 }
@@ -36,6 +36,26 @@ struct WebContainer: NSViewRepresentable {
 /// nobody handles reaches the window, which macOS takes to mean "leave full screen". Back sends the
 /// page an Escape, so pages that don't use it (a YouTube account picker) would drop Lazybones out of full
 /// screen. Handling it here, and doing nothing, stops that.
+///
+/// It also keeps the page out from under a window's title bar. WebKit would otherwise push the page
+/// down by the title bar's height itself, and then the page's coordinates (which the cursor's
+/// targets are in) would no longer be the web view's (which its mouse events are in).
 final class WebHostView: NSView {
     override func cancelOperation(_ sender: Any?) {}
+
+    override func layout() {
+        super.layout()
+        var frame = bounds
+        if let window, window.styleMask.contains(.fullSizeContentView) {
+            let visible = convert(window.contentLayoutRect, from: nil)
+            frame = bounds.intersection(visible)
+            if frame.isNull { frame = bounds }
+        }
+        for view in subviews where view.frame != frame { view.frame = frame }
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        needsLayout = true
+    }
 }

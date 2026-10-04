@@ -12,18 +12,18 @@ Lazybones turns a Mac connected to a TV into something you run from the couch wi
 
 - 📺 A Home Screen with a top shelf, an app grid whose focused icon tilts under your thumb, and a tvOS-style app switcher (swipe up to close an app)
 - 🎮 The Siri Remote over USB or Bluetooth: clicks, swipes, long presses, and the volume and power buttons
-- 🧭 Remote navigation for any page, plus custom navigation for sites where that isn't enough (Netflix moves through rows, sliders and the details panel like the TV app)
+- 🧭 Remote navigation for any page, chosen app by app: arrow keys for sites with a TV interface, a focus ring for desktop sites, or a cursor you move with touch. Plus custom navigation for sites where that isn't enough (Netflix moves through rows, sliders and the details panel like the TV app)
 - ⌨️ An on-screen keyboard that follows whichever text field the page has focused
 - 🔊 Volume routing: a volume press changes the Mac, an LG TV (and the soundbar on its ARC port), or the page's own media volume, whichever can actually do it
 - 🛡️ Ads blocked with uBlock Origin Lite, app by app, with its own settings in Settings. YouTube's TV app also has the ads taken out of its responses, where uBO Lite's rules don't reach
-- ⏭️ SponsorBlock on YouTube, skipping sponsor segments, intros and the like in the TV app too, with its own settings in Settings
+- ⏭️ SponsorBlock on YouTube, skipping sponsor segments, intros and the like in the TV app too, with its own settings under YouTube in Settings > Apps
 - 🌙 Sleep Mode: dims the screen and filters blue light for every display and every app, video included
 - 🔈 Navigation sounds, synthesized in code: a warm low "dum" when focus moves, and a "dum-hit" with a brighter, higher note on top when you select (switch them off in Settings > General)
 - 🎛️ Control Center (hold the TV button): home, sleep, volume, output and network
 - 📡 A page that can't load says why, with Try Again, and tries again by itself once the network is back
 - 🧪 A debug overlay showing what each page reports about DRM, codecs and HDR, and an on-screen remote so you can develop without the hardware
 
-Built-in apps: YouTube, Netflix, Disney+, Prime Video, HBO Max, Spotify, Plex, Jellyfin and Emby. Two test pages (DRM, ad blocking) sit alongside them for development. You can add any other site in Settings.
+Built-in apps: YouTube, Netflix, Disney+, Prime Video, HBO Max, Apple TV, SkyShowtime, Paramount+, Crunchyroll, Twitch, Telekom TV GO, Spotify, Apple Music, YouTube Music, SoundCloud, Plex, Jellyfin and Emby. Two test pages (DRM, ad blocking) sit alongside them for development. You can add any other site in Settings.
 
 ## Why
 
@@ -93,15 +93,35 @@ Controls, on the remote or the keyboard equivalents in the Lazybones menu:
 | Hold the TV button, or Power (⇧⌘C) | Control Center. |
 | Back | The page before, else Home. Sites with a TV interface get it first (see `WebPool.back`). |
 | Up from the first row of apps | The Home Screen's Settings button (⌥⌘, from anywhere). |
-| Play/Pause on the Home Screen | Plays or pauses the music left playing (Spotify). |
+| Play/Pause on the Home Screen | Plays or pauses the music left playing (Spotify, Apple Music, YouTube Music, SoundCloud). |
 
 ### Settings
 
 Settings come in two forms. The Settings screen on the Home Screen (or in Control Center) is for the remote: apps shown and their order, layout, Sleep Mode, keyboard, TV. Settings on the Mac (⌘,) has the same plus what needs a keyboard: app names, addresses and colors, TV pairing by address, and the extensions' own settings pages: uBlock Origin Lite's dashboard (filter lists, filtering modes, your own filters) and SponsorBlock's options (which segments to skip, mute or mark).
 
-Ad Blocking and SponsorBlock, in both, switch each extension on or off for each app it works on (SponsorBlock only works on YouTube). An app reloads when you change it. The extensions share one controller, since one loaded twice would keep two sets of settings, so an app that switches one off is denied it by address; for uBlock Origin Lite, whose network rules that doesn't stop, the app's site also goes on uBO Lite's own "no filtering" list, where its dashboard shows it.
+Apps, in both, lists every app; click one for its own settings: whether it's on the Home Screen, its navigation and cursor, and a switch for each extension that works on it, with SponsorBlock's options under YouTube (the only app it works on). Ad Blocking, in both, also switches uBlock Origin Lite on or off for every app at once and holds its dashboard. An app reloads when you change its extensions. The extensions share one controller, since one loaded twice would keep two sets of settings, so an app that switches one off is denied it by address; for uBlock Origin Lite, whose network rules that doesn't stop, the app's site also goes on uBO Lite's own "no filtering" list, where its dashboard shows it.
 
 To pair a TV, pick it from the discovered list (or enter its address) and accept the prompt on the screen. Volume steps reach a soundbar on HDMI ARC through the TV. Outputs with no volume control of their own and no TV fall back to the apps' volume.
+
+### Navigation
+
+Each app gets the remote one of three ways, set in the app's own settings under Settings > Apps (on the TV or the Mac). Sites that handle the remote themselves (YouTube's and Jellyfin's TV interfaces) keep their own.
+
+| Navigation | What the clickpad does |
+|---|---|
+| Arrow Keys | Goes to the page as arrow keys and Return, for sites with their own TV layout. |
+| Focus | Moves a focus ring between the page's links and buttons. Select clicks the one focused. |
+| Cursor | Moves a pointer, like a mouse. Select clicks what's under it. |
+
+The cursor is a white dot that eases after your thumb and turns into an outline around the button it's over. Each app has its own cursor settings:
+
+- **Move with touch**: slide a finger like on a trackpad, slow for precision and quick to cross the screen.
+- **Move with the clickpad**: click the ring to step, hold it to glide, gathering speed. Turn it off and the page gets arrow keys instead (keep one of the two on).
+- **Snapping** (Off, Light, Medium, Hard): how strongly the cursor is drawn onto buttons. Under touch it's pulled toward the button's middle and slows over it. With the clickpad, Medium and Hard make a click hop to the next button in that direction, as Focus does.
+- **Size** and **speed** for touch and the clickpad.
+- **Ring scrolling**: run a finger around the clickpad's edge, as you would to scrub on Apple TV. Clockwise scrolls down (or up, if you'd rather), with its own speed and optional momentum. It scrolls whatever is under the cursor, so a scrolling panel scrolls rather than the page behind it. Pushing the cursor past the top or bottom edge scrolls too.
+
+Clicks, hovers and scrolls reach the page as real mouse and scroll wheel events, so menus that open on hover and players whose controls appear on mouse movement work as with a mouse. The cursor fades after a few seconds idle. While it's hidden over a playing video, the clickpad goes to the player as keys (for seeking), and a touch or a click brings the cursor back. A press of the clickpad rocks the thumb a little before it clicks, so a click lands where the cursor was just before.
 
 ### Sleep Mode
 
@@ -153,6 +173,8 @@ Sends commands to a running debug build (or one started with `--control`), so yo
 ```
 Scripts/ctl.sh press down down select  remote buttons, one after another ("press home hold" holds)
 Scripts/ctl.sh swipe left left         swipes on the touch surface
+Scripts/ctl.sh drag 0.2 -0.1           a finger dragged from the touch surface's centre (moves a cursor)
+Scripts/ctl.sh turn 180                a finger run around the clickpad's ring (scrolls under a cursor)
 Scripts/ctl.sh open netflix
 Scripts/ctl.sh eval document.title     JavaScript in the open page (eval @youtube ... for another)
 Scripts/ctl.sh state                   what's on screen, overlays, pages, remote, TV, volume
@@ -180,6 +202,7 @@ Three leaf modules know nothing about each other or the app. `Lazybones` is wher
 | `App/` | Entry point, root view, `AppModel` (decides what a remote command means right now), double-click detection, launch options. |
 | `Home/` | The launcher (grid, top shelf, top bar), the zoom out of and back into an icon, and the app switcher. |
 | `Services/` | The service model and one folder per built-in service with its site-specific hacks. |
+| `Cursor/` | The cursor: `TouchGestures` tells a drag from a turn of the ring, `CursorMotion` moves and snaps it, `CursorController` puts it into the page as mouse and scroll wheel events, `CursorView` draws it. |
 | `Web/` | One persistent web view per service: `WebPool`, injected page scripts, the ad blocker extension. |
 | `Keyboard/` | On-screen keyboard: state, key layout, the view, and `KeyboardBridge` to the page's field. |
 | `ControlCenter/` | The overlay for home, sleep, volume, output and network. |
@@ -196,7 +219,8 @@ Create `Sources/Lazybones/Services/<Name>/<Name>.swift` with a `ServiceModule` (
 
 - Its icon comes from a `brand`: the service's official logo (and optionally its symbol alone, for small icons) in `Resources/Brands`, on a plate in its colors. Take the files from the service's brand guidelines or press kit where it has one, otherwise from its own site or repository, and record where each came from in `Resources/Brands/SOURCES.md`. A service without a brand gets an SF Symbol icon, like apps added in Settings.
 
-- A music service sets `pausesInBackground = false` (see `Spotify.swift`) so it keeps playing behind the Home Screen.
+- A music service sets `pausesInBackground = false` (see `Spotify.swift`) so it keeps playing behind the Home Screen, and a `playPauseScript` that uses its own player, since the default one only toggles the largest video.
+- A site uBlock Origin Lite's filters break sets `allowsAdBlocking = false`, and never gets it. Its audio-ad filters redirect media requests to silent clips; Chrome fetches songs another way, but WebKit loads them as media too, so Spotify and SoundCloud fall silent with it on.
 - A site the shared remote navigation fits badly can supply its own as `spatialNavScript`, which replaces it under the same setting. `NetflixNavigation.swift` moves through rows, sliders and the details panel like the TV app, and publishes `window.__lazybonesBack` so Back closes what Select opened before it leaves the page.
 - A site that only serves its TV interface to TV user agents can opt into one (see `YouTube.swift`, and `BrowserIdentity.swift` for the identity itself).
 

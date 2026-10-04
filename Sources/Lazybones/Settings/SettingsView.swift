@@ -3,22 +3,40 @@ import SwiftUI
 
 /// The Mac's Settings window (⌘,), laid out like System Settings: the panes in a sidebar, which
 /// macOS 26 floats as Liquid Glass, with a search field to find a setting by name, and back and
-/// forward buttons beside the pane's name in the toolbar.
+/// forward buttons beside the pane's name in the toolbar. Apps opens onto each app's own settings.
 struct SettingsView: View {
     static let windowID = "settings"
     /// Where the pane showing is remembered, which also opens the window at a given pane.
     static let paneKey = "settingsPane"
+    /// The app whose settings Apps is showing, or empty for the list of apps.
+    static let appKey = "settingsApp"
 
+    @EnvironmentObject private var model: AppModel
     @AppStorage(paneKey) private var pane = SettingsScreen.Page.homeScreen
+    @AppStorage(appKey) private var app = ""
     @State private var query = ""
-    /// The panes visited before and after this one, for back and forward.
-    @State private var back: [SettingsScreen.Page] = []
-    @State private var forward: [SettingsScreen.Page] = []
+    /// The places visited before and after this one, for back and forward.
+    @State private var back: [Location] = []
+    @State private var forward: [Location] = []
+
+    /// A pane, or in Apps, one app's settings.
+    private struct Location: Equatable {
+        var pane: SettingsScreen.Page
+        var app = ""
+    }
+
+    private var location: Location {
+        get { Location(pane: pane, app: pane == .apps ? app : "") }
+        nonmutating set {
+            pane = newValue.pane
+            app = newValue.app
+        }
+    }
 
     var body: some View {
         NavigationSplitView {
             let pages = SettingsScreen.Page.allCases.filter { $0.matches(query) }
-            List(selection: Binding(get: { pane }, set: { if let p = $0 { go(to: p) } })) {
+            List(selection: Binding(get: { pane }, set: { if let p = $0 { go(to: Location(pane: p)) } })) {
                 ForEach(pages) { page in
                     Label {
                         Text(page.title)
@@ -34,7 +52,7 @@ struct SettingsView: View {
             // Searching jumps to the first pane that matches, as System Settings does.
             .onChange(of: query) {
                 let matching = SettingsScreen.Page.allCases.filter { $0.matches(query) }
-                if let first = matching.first, !matching.contains(pane) { go(to: first) }
+                if let first = matching.first, !matching.contains(pane) { go(to: Location(pane: first)) }
             }
             .toolbar(removing: .sidebarToggle)
         } detail: {
@@ -61,9 +79,14 @@ struct SettingsView: View {
     @ViewBuilder private var detail: some View {
         switch pane {
         case .homeScreen: HomeScreenSettings()
-        case .apps: AppsSettings()
+        case .apps:
+            if model.settings.services.contains(where: { $0.id == app }) {
+                AppSettings(id: app)
+                    .id(app)
+            } else {
+                AppsSettings(open: { go(to: Location(pane: .apps, app: $0)) })
+            }
         case .adBlocking: AdBlockingSettings()
-        case .sponsorBlock: SponsorBlockSettings()
         case .sleepMode: SleepSettings()
         case .keyboard: KeyboardSettings()
         case .tv: TVSettings()
@@ -71,23 +94,23 @@ struct SettingsView: View {
         }
     }
 
-    private func go(to page: SettingsScreen.Page) {
-        guard page != pane else { return }
-        back.append(pane)
+    private func go(to place: Location) {
+        guard place != location else { return }
+        back.append(location)
         forward.removeAll()
-        pane = page
+        location = place
     }
 
     private func goBack() {
-        guard let page = back.popLast() else { return }
-        forward.append(pane)
-        pane = page
+        guard let place = back.popLast() else { return }
+        forward.append(location)
+        location = place
     }
 
     private func goForward() {
-        guard let page = forward.popLast() else { return }
-        back.append(pane)
-        pane = page
+        guard let place = forward.popLast() else { return }
+        back.append(location)
+        location = place
     }
 }
 

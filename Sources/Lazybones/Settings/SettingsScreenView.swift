@@ -78,8 +78,15 @@ struct SettingsScreenView: View {
     private func content(_ u: CGFloat) -> some View {
         let rows = screen.rows
         return VStack(alignment: .leading, spacing: 22 * u) {
-            Text(screen.page.title)
-                .font(.system(size: 44 * u, weight: .bold))
+            HStack(spacing: 20 * u) {
+                if let app {
+                    IconFace(service: app, height: 50 * u, unit: 0.3)
+                        .frame(width: 83 * u, height: 50 * u)
+                        .clipShape(RoundedRectangle(cornerRadius: 10 * u, style: .continuous))
+                }
+                Text(app?.name ?? screen.page.title)
+                    .font(.system(size: 44 * u, weight: .bold))
+            }
             ScrollViewReader { proxy in
                 ScrollView(showsIndicators: false) {
                     GlassGroup(spacing: 12 * u) {
@@ -101,10 +108,16 @@ struct SettingsScreenView: View {
             }
         }
         .frame(maxWidth: 900 * u, maxHeight: .infinity, alignment: .topLeading)
-        .id(screen.page)
+        .id("\(screen.page.rawValue)/\(app?.id ?? "")")
         // A new page rises into place as the old one fades.
         .transition(.asymmetric(insertion: reduceMotion ? .opacity : .opacity.combined(with: .offset(y: 28 * u)),
                                 removal: .opacity))
+    }
+
+    /// The app whose settings are showing, inside the Apps page.
+    private var app: Service? {
+        guard screen.page == .apps, let id = screen.app else { return nil }
+        return model.settings.services.first { $0.id == id }
     }
 
     // MARK: Rows
@@ -156,7 +169,7 @@ struct SettingsScreenView: View {
 
     /// The small line under a row's title. Apps explain how to reorder them while focused.
     private func detail(of row: SettingsRow, focused: Bool) -> String? {
-        if case .app = row.style, focused { return "◀ ▶ move along the Home Screen · click to show or hide" }
+        if case .app = row.style, focused { return "◀ ▶ move along the Home Screen · click for settings" }
         return row.detail
     }
 
@@ -203,11 +216,16 @@ struct SettingsScreenView: View {
             }
             .font(.system(size: 24 * u, weight: .medium))
         case let .app(_, shown):
-            Text(shown ? "Shown" : "Hidden")
-                .font(.system(size: 22 * u, weight: .medium))
-                .opacity(0.7)
-                .contentTransition(.opacity)
-                .animation(Motion.value, value: shown)
+            HStack(spacing: 18 * u) {
+                Text(shown ? "Shown" : "Hidden")
+                    .font(.system(size: 22 * u, weight: .medium))
+                    .opacity(0.7)
+                    .contentTransition(.opacity)
+                    .animation(Motion.value, value: shown)
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 20 * u, weight: .bold))
+                    .opacity(0.5)
+            }
         case .button:
             Image(systemName: "chevron.right")
                 .font(.system(size: 20 * u, weight: .bold))

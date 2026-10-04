@@ -89,12 +89,20 @@ final class RemoteSimulator: ObservableObject {
     var onEvent: ((RemoteEvent) -> Void)?
     /// Where a finger rests on the touch surface, as `TouchSurface.onRest` reports it.
     var onRest: ((SIMD2<Float>?) -> Void)?
+    /// A finger on the clickpad, or two on the trackpad, moving: what `SiriRemote.onTouch` reports.
+    var onTouch: ((TouchSample) -> Void)?
+    /// A direction let go, as `SiriRemote.onRelease` reports it.
+    var onRelease: ((RemoteCommand) -> Void)?
+    /// Whether touch is moving a cursor right now, in which case it doesn't swipe.
+    var touchMovesCursor: () -> Bool = { false }
 
     private var repeatTimer: Timer?
     private var holdTimer: Timer?
     private var panel: RemotePanel?
     private var nextEcho = 0
     private var scrolled = CGSize.zero
+    /// Where two fingers scrolling on the trackpad would be on the touch surface.
+    private var scrollFinger: SIMD2<Float>?
     /// Scroll distance per swipe step, in points: about what a two-finger flick covers.
     private let scrollStep: CGFloat = 36
 
@@ -194,6 +202,7 @@ final class RemoteSimulator: ObservableObject {
         if b.command.isDirection {
             repeatTimer?.invalidate()
             repeatTimer = nil
+            onRelease?(b.command)
         } else if b == .home, let t = holdTimer {
             t.invalidate()
             holdTimer = nil
@@ -220,7 +229,13 @@ final class RemoteSimulator: ObservableObject {
     }
 
     func swipe(_ c: RemoteCommand) {
+        guard !touchMovesCursor() else { return }
         send(RemoteEvent(command: c, source: .swipe))
+    }
+
+    /// A finger on the touch surface (0...1, y up), as the hardware reports it.
+    func touch(_ phase: TouchSample.Phase, at p: SIMD2<Float>) {
+        onTouch?(TouchSample(phase, p, time: ProcessInfo.processInfo.systemUptime))
     }
 
     /// The finger's rest on the clickpad, in swipe steps from where focus last moved (y up).
@@ -236,6 +251,9 @@ final class RemoteSimulator: ObservableObject {
         // The way the fingers moved (y down), whichever way scrolling is set to go.
         let sign: CGFloat = e.isDirectionInvertedFromDevice ? 1 : -1
         let dx = sign * e.scrollingDeltaX, dy = sign * e.scrollingDeltaY
+        if e.hasPreciseScrollingDeltas, touchMovesCursor() || scrollFinger != nil {
+            return scrollTouch(e, dx: dx, dy: dy)
+        }
         guard e.hasPreciseScrollingDeltas else {
             if abs(dy) >= abs(dx), dy != 0 { swipe(dy > 0 ? .down : .up) } else if dx != 0 { swipe(dx > 0 ? .right : .left) }
             return
@@ -255,6 +273,26 @@ final class RemoteSimulator: ObservableObject {
             rest(nil)
         } else {
             rest(SIMD2(Float(scrolled.width / scrollStep), Float(-scrolled.height / scrollStep)))
+        }
+    }
+
+    /// Two fingers on the trackpad as one on the touch surface, starting from its centre, so they
+    /// move a cursor as the thumb would: about a third of the surface per inch of travel.
+    private func scrollTouch(_ e: NSEvent, dx: CGFloat, dy: CGFloat) {
+        let perPoint: Float = 1 / 240
+        if e.phase == .began || e.phase == .mayBegin || scrollFinger == nil {
+            let p = SIMD2<Float>(0.5, 0.5)
+            scrollFinger = p
+            touch(.began, at: p)
+        }
+        guard var p = scrollFinger else { return }
+        p += SIMD2(Float(dx), Float(-dy)) * perPoint
+        scrollFinger = p
+        if e.phase == .ended || e.phase == .cancelled {
+            touch(.ended, at: p)
+            scrollFinger = nil
+        } else {
+            touch(.moved, at: p)
         }
     }
 

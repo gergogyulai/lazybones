@@ -1,10 +1,12 @@
 import SwiftUI
 
-/// Every app, in Home Screen order: a switch to show or hide each, drag to reorder, and Details…
-/// for editing one in a sheet.
+/// Every app, in Home Screen order: a switch to show or hide each, drag to reorder, and a click
+/// through to each app's own settings.
 struct AppsSettings: View {
     @EnvironmentObject var model: AppModel
-    /// The app open in the editor: one already on the list, or a new one not yet added.
+    /// Shows an app's own settings.
+    let open: (String) -> Void
+    /// The app open in the editor: a new one not yet added.
     @State private var editing: Editing?
     @State private var confirmingRestore = false
 
@@ -35,8 +37,7 @@ struct AppsSettings: View {
             }
         }
         .sheet(item: $editing) { e in
-            ServiceEditor(service: e.service, isNew: e.isNew, save: save,
-                          remove: e.isNew || e.service.builtIn ? nil : { remove(e.service.id) })
+            ServiceEditor(service: e.service, isNew: e.isNew, save: model.save)
         }
         .confirmationDialog("Restore the default apps?", isPresented: $confirmingRestore) {
             Button("Restore Defaults", role: .destructive) {
@@ -68,31 +69,34 @@ struct AppsSettings: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            Button {
-                editing = Editing(service: s, isNew: false)
-            } label: {
-                Image(systemName: "info.circle")
-                    .imageScale(.large)
-                    .foregroundStyle(.secondary)
-            }
-            .buttonStyle(.borderless)
-            .help("Details")
-            .accessibilityLabel("\(s.name) Details")
             Toggle("Show \(s.name) on the Home Screen", isOn: visibility(s.id))
                 .labelsHidden()
                 .toggleStyle(.switch)
+            Button {
+                open(s.id)
+            } label: {
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(.secondary)
+                    .frame(width: 20, height: 28)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.borderless)
+            .help("Settings")
+            .accessibilityLabel("\(s.name) Settings")
         }
+        .contentShape(Rectangle())
+        .onTapGesture { open(s.id) }
         .padding(.vertical, 2)
         .animation(.default, value: shown)
         .contextMenu {
-            Button("Details…") { editing = Editing(service: s, isNew: false) }
+            Button("Settings…") { open(s.id) }
             Button(shown ? "Hide from Home Screen" : "Show on Home Screen") { visibility(s.id).wrappedValue.toggle() }
             Divider()
             Button("Move Up") { move(from: i, to: i - 1) }.disabled(i == 0)
             Button("Move Down") { move(from: i, to: i + 1) }.disabled(i == services.count - 1)
             if !s.builtIn {
                 Divider()
-                Button("Remove \(s.name)", role: .destructive) { remove(s.id) }
+                Button("Remove \(s.name)", role: .destructive) { model.remove(s.id) }
             }
         }
     }
@@ -108,19 +112,22 @@ struct AppsSettings: View {
         guard model.settings.services.indices.contains(j) else { return }
         withAnimation { model.settings.services.swapAt(i, j) }
     }
+}
 
+extension AppModel {
     /// Takes an edited app back, or adds a new one at the end of the Home Screen.
-    private func save(_ s: Service) {
-        if let i = model.settings.services.firstIndex(where: { $0.id == s.id }) {
-            if model.settings.services[i] != s { model.settings.services[i] = s }
+    func save(_ s: Service) {
+        if let i = settings.services.firstIndex(where: { $0.id == s.id }) {
+            if settings.services[i] != s { settings.services[i] = s }
         } else {
-            model.settings.services.append(s)
+            settings.services.append(s)
         }
     }
 
-    private func remove(_ id: String) {
-        guard let s = model.settings.services.first(where: { $0.id == id }), !s.builtIn else { return }
-        model.settings.services.removeAll { $0.id == id }
-        model.settings.hidden.remove(id)
+    /// Removes an app added in Settings. Built-in apps can only be hidden.
+    func remove(_ id: String) {
+        guard let s = settings.services.first(where: { $0.id == id }), !s.builtIn else { return }
+        settings.services.removeAll { $0.id == id }
+        settings.hidden.remove(id)
     }
 }

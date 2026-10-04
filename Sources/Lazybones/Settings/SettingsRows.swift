@@ -8,9 +8,8 @@ extension AppModel {
     func settingsRows(for page: SettingsScreen.Page) -> [SettingsRow] {
         switch page {
         case .homeScreen: homeScreenRows
-        case .apps: appRows
+        case .apps: settingsScreen.app.flatMap(appRows(for:)) ?? appRows
         case .adBlocking: adBlockingRows
-        case .sponsorBlock: sponsorBlockRows
         case .sleepMode: sleepModeRows
         case .keyboard: keyboardRows
         case .tv: tvRows
@@ -36,39 +35,107 @@ extension AppModel {
             return SettingsRow(
                 id: s.id, title: s.name, detail: s.url.host(), style: .app(s, shown: shown),
                 adjust: { [unowned self] in move(s.id, by: $0) },
-                activate: { [unowned self] in
-                    if shown { settings.hidden.insert(s.id) } else { settings.hidden.remove(s.id) }
-                })
+                activate: { [unowned self] in settingsScreen.show(app: s.id) })
         } + [
-            SettingsRow(id: "apps-note", title: "Click to show or hide an app. Press ◀ or ▶ to move it along the Home Screen. Names, addresses and colors are in Settings on the Mac (⌘,).",
+            SettingsRow(id: "apps-note", title: "Click an app for its settings. Press ◀ or ▶ to move it along the Home Screen. Names, addresses and colors are in Settings on the Mac (⌘,).",
                         style: .note),
         ]
     }
 
+    /// One app's own settings: whether it's on the Home Screen, the extensions that work on it, and
+    /// how the remote gets around it. Nil if the app is gone.
+    private func appRows(for id: String) -> [SettingsRow]? {
+        guard let i = settings.services.firstIndex(where: { $0.id == id }) else { return nil }
+        let s = settings.services[i]
+        let shown = !settings.hidden.contains(s.id)
+        var rows = [
+            SettingsRow(id: "app-shown", title: "Show on Home Screen", style: .toggle(shown),
+                        activate: { [unowned self] in
+                            if shown { settings.hidden.insert(s.id) } else { settings.hidden.remove(s.id) }
+                        }),
+        ]
+
+        let blocks = extensions.applies(.uBlockOriginLite, to: s), skips = extensions.applies(.sponsorBlock, to: s)
+        if blocks || skips { rows.append(SettingsRow(id: "app-extensions-header", title: "Extensions", style: .header)) }
+        if blocks {
+            rows.append(SettingsRow(id: "app-ads", title: "Block Ads", detail: "With uBlock Origin Lite. Its filters are under Ad Blocking.",
+                                    style: .toggle(s.blocksAds), activate: { [unowned self] in settings.services[i].blocksAds.toggle() }))
+        }
+        if skips {
+            rows.append(SettingsRow(id: "app-sponsors", title: "SponsorBlock", detail: "Skips sponsor segments, intros and the like",
+                                    style: .toggle(s.skipsSponsors), activate: { [unowned self] in settings.services[i].skipsSponsors.toggle() }))
+            rows.append(SettingsRow(id: "app-sponsors-settings", title: "SponsorBlock Settings",
+                                    detail: "Which kinds of segments to skip, mute or mark, on the Mac",
+                                    style: .button, activate: { [unowned self] in openMacSettings(at: .apps, app: s.id) }))
+        }
+
+        rows.append(SettingsRow(id: "nav-header", title: "Remote", style: .header))
+        if ServiceModules.handlesNavigation(s) {
+            rows.append(SettingsRow(id: "nav-mode", title: "Navigation", detail: "\(s.name) handles the remote itself",
+                                    style: .value("Built In")))
+        } else {
+            let mode = { [unowned self] (step: Int) in settings.services[i].navigation = cycled(s.navigation, step) }
+            rows.append(SettingsRow(id: "nav-mode", title: "Navigation", detail: s.navigation.detail,
+                                    style: .value(s.navigation.title), adjust: mode, activate: { mode(1) }))
+            if s.navigation == .cursor { rows += cursorRows(i) }
+        }
+        rows.append(SettingsRow(id: "app-mac", title: "Name, Address and Appearance", detail: "In Settings on the Mac (⌘,)",
+                                style: .button, activate: { [unowned self] in openMacSettings(at: .apps, app: s.id) }))
+        rows.append(SettingsRow(id: "app-note", title: "The app reloads when you change its extensions or navigation. Cursor settings apply straight away.",
+                                style: .note))
+        return rows
+    }
+
+    private func cursorRows(_ i: Int) -> [SettingsRow] {
+        let c = settings.services[i].cursor
+        let change = { [unowned self] (edit: (inout CursorSettings) -> Void) in edit(&settings.services[i].cursor) }
+        let speed = { (id: String, title: String, key: WritableKeyPath<CursorSettings, Double>) in
+            SettingsRow(id: id, title: title, style: .slider(c[keyPath: key], label: String(format: "%.1f×", CursorSettings.gain(c[keyPath: key]))),
+                        adjust: { step in change { $0[keyPath: key] = min(max(($0[keyPath: key] + Double(step) * 0.1).rounded(toPlaces: 1), 0), 1) } })
+        }
+        // One way of moving it has to stay on.
+        let flip = { (key: WritableKeyPath<CursorSettings, Bool>, other: WritableKeyPath<CursorSettings, Bool>) in
+            { change { if !$0[keyPath: key] || $0[keyPath: other] { $0[keyPath: key].toggle() } } }
+        }
+        return [
+            SettingsRow(id: "cursor-header", title: "Cursor", style: .header),
+            SettingsRow(id: "cursor-touch", title: "Move with Touch", detail: "Slide a finger on the clickpad, like a trackpad",
+                        style: .toggle(c.followsTouch), activate: flip(\.followsTouch, \.followsArrows)),
+            speed("cursor-touch-speed", "Touch Speed", \.touchSpeed),
+            SettingsRow(id: "cursor-arrows", title: "Move with the Clickpad", detail: "Click the ring to step, hold it to glide",
+                        style: .toggle(c.followsArrows), activate: flip(\.followsArrows, \.followsTouch)),
+            speed("cursor-arrow-speed", "Clickpad Speed", \.arrowSpeed),
+            SettingsRow(id: "cursor-snapping", title: "Snapping", detail: "How strongly it’s drawn onto buttons",
+                        style: .value(c.snapping.title), adjust: { step in change { $0.snapping = cycled($0.snapping, step) } },
+                        activate: { change { $0.snapping = cycled($0.snapping, 1) } }),
+            SettingsRow(id: "cursor-size", title: "Size", style: .value(c.size.title),
+                        adjust: { step in change { $0.size = cycled($0.size, step) } },
+                        activate: { change { $0.size = cycled($0.size, 1) } }),
+            SettingsRow(id: "ring-header", title: "Ring Scrolling", style: .header),
+            SettingsRow(id: "ring", title: "Circle the Ring to Scroll", detail: "Run a finger around the clickpad’s edge",
+                        style: .toggle(c.ringScrolls), activate: { change { $0.ringScrolls.toggle() } }),
+            SettingsRow(id: "ring-direction", title: "Turning Clockwise Scrolls", style: .value(c.scrollDirection.title),
+                        adjust: { step in change { $0.scrollDirection = cycled($0.scrollDirection, step) } },
+                        activate: { change { $0.scrollDirection = cycled($0.scrollDirection, 1) } }),
+            speed("ring-speed", "Scroll Speed", \.scrollSpeed),
+            SettingsRow(id: "ring-momentum", title: "Momentum", detail: "Keeps scrolling for a moment after a quick turn",
+                        style: .toggle(c.scrollMomentum), activate: { change { $0.scrollMomentum.toggle() } }),
+        ]
+    }
+
+    /// uBlock Origin Lite's status, a way to its own settings on the Mac, and a switch for each app it works on.
     private var adBlockingRows: [SettingsRow] {
-        extensionRows(.uBlockOriginLite, isOn: \.blocksAds, header: "Block Ads In",
-                      settingsDetail: "Filter lists, filtering modes and your own filters, on the Mac")
-    }
-
-    private var sponsorBlockRows: [SettingsRow] {
-        extensionRows(.sponsorBlock, isOn: \.skipsSponsors, header: "Skip Segments In",
-                      settingsDetail: "Which kinds of segments to skip, mute or mark, on the Mac")
-    }
-
-    /// A bundled extension's status, a way to its own settings on the Mac, and a switch for each app it works on.
-    private func extensionRows(_ e: BundledExtension, isOn: WritableKeyPath<Service, Bool>, header: String,
-                               settingsDetail: String) -> [SettingsRow] {
-        let page: SettingsScreen.Page = e == .uBlockOriginLite ? .adBlocking : .sponsorBlock
+        let e = BundledExtension.uBlockOriginLite
         let apps = settings.services.indices.filter { extensions.applies(e, to: settings.services[$0]) }
         return [
             SettingsRow(id: "\(e.id)-status", title: e.name, style: .value(extensions.status(e).summary)),
-            SettingsRow(id: "\(e.id)-settings", title: "\(e.name) Settings", detail: settingsDetail,
-                        style: .button, activate: { [unowned self] in openMacSettings(at: page) }),
-            SettingsRow(id: "\(e.id)-header", title: header, style: .header),
+            SettingsRow(id: "\(e.id)-settings", title: "\(e.name) Settings", detail: "Filter lists, filtering modes and your own filters, on the Mac",
+                        style: .button, activate: { [unowned self] in openMacSettings(at: .adBlocking) }),
+            SettingsRow(id: "\(e.id)-header", title: "Block Ads In", style: .header),
         ] + apps.map { i in
             let s = settings.services[i]
-            return SettingsRow(id: "\(e.id)-\(s.id)", title: s.name, style: .toggle(s[keyPath: isOn]),
-                               activate: { [unowned self] in settings.services[i][keyPath: isOn].toggle() })
+            return SettingsRow(id: "\(e.id)-\(s.id)", title: s.name, style: .toggle(s.blocksAds),
+                               activate: { [unowned self] in settings.services[i].blocksAds.toggle() })
         } + [
             SettingsRow(id: "\(e.id)-note", title: apps.isEmpty ? "It doesn’t work on any of your apps." : "An app reloads when you change this.",
                         style: .note),
@@ -175,4 +242,11 @@ private extension Double {
         let scale = pow(10, Double(places))
         return (self * scale).rounded() / scale
     }
+}
+
+/// The next (or previous) of an enum's cases, round and round.
+private func cycled<T: CaseIterable & Equatable>(_ value: T, _ step: Int) -> T {
+    let all = Array(T.allCases)
+    let i = all.firstIndex(of: value) ?? 0
+    return all[(i + step % all.count + all.count) % all.count]
 }

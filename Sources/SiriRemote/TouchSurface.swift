@@ -5,10 +5,12 @@ import simd
 /// multitouch device, so touches never show up as HID reports.
 ///
 /// Swipes behave like tvOS: a flick moves focus one step, a long drag keeps stepping as the finger
-/// travels, and can change direction mid-drag.
+/// travels, and can change direction mid-drag. Alongside the swipes, every move of the finger is
+/// reported as a `TouchSample`, for a pointer to follow.
 @MainActor
 final class TouchSurface {
     var onSwipe: ((RemoteCommand) -> Void)?
+    var onSample: ((TouchSample) -> Void)?
     /// Where the finger rests relative to where focus last moved, in steps (-1...1 on each axis, y
     /// up), or nil once it lifts or clicks. What tvOS tilts the focused item by.
     var onRest: ((SIMD2<Float>?) -> Void)?
@@ -16,11 +18,15 @@ final class TouchSurface {
     /// Set while a physical button is held; a click shouldn't also register as a swipe.
     var suppressed = false {
         didSet {
-            guard suppressed, active?.spent == false else { return }
+            guard suppressed else { return }
+            if let t = active, sampling { sample(.ended, t.last, at: t.lastTime) }
+            guard active?.spent == false else { return }
             active?.spent = true
             rest(nil)
         }
     }
+    /// Whether a touch has begun as far as samples go, and not yet ended.
+    private var sampling = false
     private var lastRest: SIMD2<Float>?
     private(set) var connected = false {
         didSet { if connected != oldValue { onConnectedChanged?() } }
@@ -35,6 +41,7 @@ final class TouchSurface {
         var anchor: (x: Float, y: Float)
         var start: (x: Float, y: Float)
         var last: (x: Float, y: Float)
+        var lastTime: TimeInterval
         var began: TimeInterval
         var emitted = false
         var spent = false  // a click happened during this touch; ignore it
@@ -62,6 +69,7 @@ final class TouchSurface {
     private func reconnectIfNeeded() {
         guard let found = MT.findRemote() else {
             device = nil
+            if let t = active, sampling { sample(.ended, t.last, at: t.lastTime) }
             active = nil
             connected = false
             return
@@ -78,18 +86,24 @@ final class TouchSurface {
 
     private func handle(_ frame: TouchFrame) {
         guard let p = frame.point else {
-            if let t = active { finish(t, at: frame.time) }
+            if let t = active {
+                finish(t, at: frame.time)
+                if sampling { sample(.ended, t.last, at: frame.time) }
+            }
             active = nil
             rest(nil)
             return
         }
+        // Samples stop while a button is held, and start again from wherever the finger is after.
+        if !suppressed { sample(sampling ? .moved : .began, p, at: frame.time) }
         guard var t = active else {
-            active = Touch(anchor: p, start: p, last: p, began: frame.time, spent: suppressed)
+            active = Touch(anchor: p, start: p, last: p, lastTime: frame.time, began: frame.time, spent: suppressed)
             if !suppressed { rest(.zero) }
             return
         }
         defer { active = t }
         t.last = p
+        t.lastTime = frame.time
         if t.spent { return }
 
         let dx = p.x - t.anchor.x, dy = p.y - t.anchor.y
@@ -99,6 +113,11 @@ final class TouchSurface {
             t.emitted = true
         }
         rest(SIMD2(p.x - t.anchor.x, p.y - t.anchor.y) / step)
+    }
+
+    private func sample(_ phase: TouchSample.Phase, _ p: (x: Float, y: Float), at time: TimeInterval) {
+        sampling = phase != .ended
+        onSample?(TouchSample(phase, SIMD2(p.x, p.y), time: time))
     }
 
     /// Reports the resting offset, skipping changes too small to see: frames arrive at over 100 Hz.

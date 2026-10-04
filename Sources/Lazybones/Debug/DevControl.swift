@@ -8,6 +8,10 @@ enum DevCommand: Equatable {
     case press([RemoteCommand], hold: Bool)
     /// Swipes on the touch surface, one after another; only directions.
     case swipe([RemoteCommand])
+    /// A finger dragged across the touch surface from its centre, in surface widths (y up).
+    case drag(dx: Float, dy: Float)
+    /// A finger run around the clickpad's ring, in degrees (clockwise positive).
+    case turn(degrees: Float)
     case open(String)
     /// JavaScript to run in a service's page; the open one if no id is given.
     case eval(String, in: String?)
@@ -21,6 +25,8 @@ enum DevCommand: Equatable {
     static let usage = """
     press <button>... [hold] up down left right select back home playpause volup voldown mute siri power
     swipe <direction>...    swipe on the touch surface (up down left right)
+    drag <dx> <dy>          drag a finger from the touch surface's centre, in surface widths (y up)
+    turn <degrees>          run a finger around the clickpad's ring (clockwise positive)
     open <id>               open a service (youtube, netflix...)
     eval [@<id>] <js>       run JavaScript in the open page (or <id>'s) and print the result
     state                   what the app is showing and doing
@@ -52,6 +58,12 @@ enum DevCommand: Equatable {
             let directions = rest.compactMap { Self.buttons[$0.lowercased()] }
             guard !directions.isEmpty, directions.count == rest.count, directions.allSatisfy(\.isDirection) else { return nil }
             self = .swipe(directions)
+        case "drag":
+            guard rest.count == 2, let dx = Float(rest[0]), let dy = Float(rest[1]) else { return nil }
+            self = .drag(dx: dx, dy: dy)
+        case "turn":
+            guard rest.count == 1, let degrees = Float(rest[0]) else { return nil }
+            self = .turn(degrees: degrees)
         case "open":
             guard let id = rest.first else { return nil }
             self = .open(id)

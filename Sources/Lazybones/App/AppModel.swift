@@ -26,7 +26,9 @@ final class AppModel: ObservableObject {
     // MARK: Services
 
     /// The service the remote is driving: set the moment one opens, cleared the moment you go Home.
-    @Published private(set) var active: Service?
+    @Published private(set) var active: Service? {
+        didSet { if active?.id != oldValue?.id { cursor.attach(active) } }
+    }
     /// The service on screen, which outlasts `active` while it zooms back into its icon.
     @Published private(set) var presented: Service?
     /// Whether the presented service has zoomed out to fill the screen.
@@ -66,6 +68,8 @@ final class AppModel: ObservableObject {
     let volume: VolumeController
     let controlCenter: ControlCenter
     let simulator = RemoteSimulator()
+    /// The pointer in apps that use one.
+    private(set) lazy var cursor = CursorController(web: web)
 
     var columns: Int { settings.columns }
     var visible: [Service] { settings.visibleServices }
@@ -132,6 +136,13 @@ final class AppModel: ObservableObject {
         remote.onTouchRest = { [weak self] in self?.touchRested($0) }
         simulator.onEvent = { [weak self] in self?.handle($0, simulated: true) }
         simulator.onRest = { [weak self] in self?.touchRested($0) }
+        remote.onTouch = { [weak self] in self?.touched($0) }
+        simulator.onTouch = { [weak self] in self?.touched($0) }
+        remote.onRelease = { [weak self] in self?.cursor.release($0) }
+        simulator.onRelease = { [weak self] in self?.cursor.release($0) }
+        simulator.touchMovesCursor = { [weak self] in self?.cursorTakesTouch ?? false }
+        cursor.service = { [weak self] id in self?.settings.services.first { $0.id == id } }
+        cursor.isPlaying = { [weak self] id in self?.playing.contains(id) ?? false }
         remote.onDiagnostic = { [weak self] in self?.diagnostics.log($0, .remote) }
         remote.onStatusChange = { [weak self] status in
             guard let self else { return }
@@ -225,9 +236,21 @@ final class AppModel: ObservableObject {
 
     /// `simulated` events come from the on-screen remote, which macOS never acts on itself.
     func handle(_ event: RemoteEvent, simulated: Bool = false) {
+        // The finger is moving the cursor; its swipes are nobody's business.
+        if event.source == .swipe, cursorTakesTouch { return }
         diagnostics.log("\(simulated ? "sim " : "")\(event.source) \(event.command)", .remote)
         if !simulated { simulator.mirror(event) }
         withSounds(for: event.command) { route(event, simulated: simulated) }
+    }
+
+    /// Whether a finger on the touch surface moves the cursor, rather than swiping: in an app that uses
+    /// one, with nothing (Control Center, the keyboard) over it.
+    var cursorTakesTouch: Bool {
+        active != nil && !overlayOpen && !showsFailure && !keyboard.isVisible && cursor.takesTouch
+    }
+
+    private func touched(_ sample: TouchSample) {
+        if cursorTakesTouch { cursor.touch(sample) }
     }
 
     /// Where a thumb rests on the touch surface. Only the Home Screen's icons tilt under it;
@@ -259,7 +282,11 @@ final class AppModel: ObservableObject {
         case .back:
             if let s = active { back(in: s) }
         default:
-            if let s = active { web.send(command, to: s) } else { navigate(command, repeating: event.source == .repeat) }
+            if let s = active {
+                if !cursor.handle(event) { web.send(command, to: s) }
+            } else {
+                navigate(command, repeating: event.source == .repeat)
+            }
         }
     }
 
@@ -295,6 +322,7 @@ final class AppModel: ObservableObject {
         var output: Int
         var outputExpanded: Bool
         var page: SettingsScreen.Page
+        var app: String?
         var row: Int
         var inSidebar: Bool
         var switcher: Int
@@ -302,7 +330,8 @@ final class AppModel: ObservableObject {
 
     private var navigationFocus: Focus {
         Focus(grid: focus, settings: settings, control: controlCenter.focus, output: controlCenter.outputFocus,
-              outputExpanded: controlCenter.outputExpanded, page: settingsScreen.page, row: settingsScreen.row,
+              outputExpanded: controlCenter.outputExpanded, page: settingsScreen.page,
+              app: settingsScreen.app, row: settingsScreen.row,
               inSidebar: settingsScreen.inSidebar, switcher: switcher.focus)
     }
 
@@ -310,7 +339,8 @@ final class AppModel: ObservableObject {
     /// Control Center's output list. Going deeper is a push, coming back out is a pop.
     private var depth: Int {
         (active != nil ? 1 : 0) + (controlCenter.isOpen ? 1 : 0) + (switcher.isOpen ? 1 : 0)
-            + (settingsScreen.isOpen ? (settingsScreen.inSidebar ? 1 : 2) : 0) + (controlCenter.outputExpanded ? 1 : 0)
+            + (settingsScreen.isOpen ? (settingsScreen.inSidebar ? 1 : 2) + (settingsScreen.app != nil ? 1 : 0) : 0)
+            + (controlCenter.outputExpanded ? 1 : 0)
     }
 
     /// Runs something the user did and plays the sound it earned: a rising push or falling pop if
@@ -636,13 +666,21 @@ final class AppModel: ObservableObject {
         withSounds {
             if controlCenter.isOpen { controlCenter.close() }
             if switcher.isOpen { switcher.close() }
-            settingsScreen.open(page: page)
+            // Opened over an app, it starts at that app's settings.
+            if page == nil, let active {
+                settingsScreen.open(page: .apps, app: active.id)
+            } else {
+                settingsScreen.open(page: page)
+            }
         }
     }
 
-    /// Opens the Mac's Settings window (⌘,), at `page` if given.
-    func openMacSettings(at page: SettingsScreen.Page? = nil) {
-        if let page { UserDefaults.standard.set(page.rawValue, forKey: SettingsView.paneKey) }
+    /// Opens the Mac's Settings window (⌘,), at `page` if given, and in Apps, at `app`'s settings.
+    func openMacSettings(at page: SettingsScreen.Page? = nil, app: String? = nil) {
+        if let page {
+            UserDefaults.standard.set(page.rawValue, forKey: SettingsView.paneKey)
+            UserDefaults.standard.set(app ?? "", forKey: SettingsView.appKey)
+        }
         settingsRequests += 1
     }
 
@@ -683,7 +721,7 @@ final class AppModel: ObservableObject {
         // A service whose page settings changed gets a fresh web view next time it opens.
         for s in settings.services {
             guard let before = old.services.first(where: { $0.id == s.id }),
-                  before.url != s.url || before.agent != s.agent || before.spatialNav != s.spatialNav
+                  before.url != s.url || before.agent != s.agent || before.navigation != s.navigation
                     || before.blocksAds != s.blocksAds || before.skipsSponsors != s.skipsSponsors else { continue }
             discard(s.id)
         }

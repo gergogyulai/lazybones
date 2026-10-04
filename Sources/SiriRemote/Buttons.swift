@@ -6,6 +6,8 @@ import IOKit.hid
 @MainActor
 final class ButtonReader {
     var onEvent: ((RemoteEvent) -> Void)?
+    /// A direction let go.
+    var onRelease: ((RemoteCommand) -> Void)?
     var onUnmapped: ((UInt32) -> Void)?
     var onHeldChanged: ((Bool) -> Void)?
     var onDevicesChanged: (() -> Void)?
@@ -109,7 +111,10 @@ final class ButtonReader {
         case _ where command.isDirection:
             repeatTimer?.invalidate()
             repeatTimer = nil
-            guard isDown else { return }
+            guard isDown else {
+                onRelease?(command)
+                return
+            }
             emit(command, .press)
             repeatTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated { self?.startRepeating(command) }
@@ -156,6 +161,7 @@ final class ButtonReader {
         repeatTimer = nil
         holdTimer?.invalidate()
         holdTimer = nil
+        for command in Set(down.compactMap { Self.usages[$0] }) where command.isDirection { onRelease?(command) }
         down.removeAll()
         onHeldChanged?(false)
     }

@@ -9,7 +9,9 @@ struct Service: Identifiable, Codable, Equatable {
     var url: URL
     var tint: RGB
     var agent: Agent
-    var spatialNav: Bool
+    var navigation: Navigation
+    /// How the cursor behaves, for when `navigation` is `.cursor`.
+    var cursor = CursorSettings()
     /// Launcher presentation: SF Symbol for the icon, a line for the top shelf, and the icon's highlight.
     var symbol = "play.tv.fill"
     var tagline = ""
@@ -31,7 +33,7 @@ struct Service: Identifiable, Codable, Equatable {
 
     static func custom() -> Service {
         Service(id: UUID().uuidString, name: "New App", url: URL(string: "https://example.com")!,
-                tint: RGB(0.25, 0.3, 0.4), agent: .safari, spatialNav: true, symbol: "globe",
+                tint: RGB(0.25, 0.3, 0.4), agent: .safari, navigation: .spatial, symbol: "globe",
                 accentTint: RGB(0.4, 0.5, 0.65))
     }
 
@@ -57,7 +59,14 @@ extension Service {
         url = try c.decode(URL.self, forKey: .url)
         tint = try c.decode(RGB.self, forKey: .tint)
         agent = try c.decode(Agent.self, forKey: .agent)
-        spatialNav = try c.decode(Bool.self, forKey: .spatialNav)
+        // Before there were three, navigation was a switch for spatial navigation.
+        if let n = try? c.decodeIfPresent(Navigation.self, forKey: .navigation) {
+            navigation = n
+        } else {
+            let legacy = try decoder.container(keyedBy: LegacyKeys.self)
+            navigation = try legacy.decodeIfPresent(Bool.self, forKey: .spatialNav) == false ? .keys : .spatial
+        }
+        cursor = try c.decodeIfPresent(CursorSettings.self, forKey: .cursor) ?? cursor
         symbol = try c.decodeIfPresent(String.self, forKey: .symbol) ?? symbol
         tagline = try c.decodeIfPresent(String.self, forKey: .tagline) ?? tagline
         accentTint = try c.decodeIfPresent(RGB.self, forKey: .accentTint)
@@ -65,6 +74,8 @@ extension Service {
         skipsSponsors = try c.decodeIfPresent(Bool.self, forKey: .skipsSponsors) ?? skipsSponsors
         builtIn = try c.decodeIfPresent(Bool.self, forKey: .builtIn) ?? builtIn
     }
+
+    private enum LegacyKeys: String, CodingKey { case spatialNav }
 }
 
 /// A Codable sRGB color, since SwiftUI's Color isn't.

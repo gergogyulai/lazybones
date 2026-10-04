@@ -25,6 +25,25 @@ public struct RemoteEvent: Sendable, Equatable {
     }
 }
 
+/// A finger on the touch surface, for clients that follow it themselves (a pointer) rather than
+/// taking swipes. A click lifts it, as far as samples go: the touch ends when a button goes down and
+/// begins again where the finger is once it's released, so a press never moves what follows it.
+public struct TouchSample: Sendable, Equatable {
+    public enum Phase: Sendable { case began, moved, ended }
+
+    public let phase: Phase
+    /// Where the finger is, 0...1 on both axes with y up; the clickpad's centre is (0.5, 0.5).
+    public let position: SIMD2<Float>
+    /// Seconds, on a clock of the sender's choosing; only differences mean anything.
+    public let time: TimeInterval
+
+    public init(_ phase: Phase, _ position: SIMD2<Float>, time: TimeInterval) {
+        self.phase = phase
+        self.position = position
+        self.time = time
+    }
+}
+
 /// The Siri Remote (USB-C, 2022), over USB or Bluetooth.
 ///
 /// Everything device-specific lives in this module: HID button usages and their duplicate reports,
@@ -70,6 +89,10 @@ public final class SiriRemote {
     /// steps (-1...1 on each axis, x right and y up), or nil when it lifts or clicks. tvOS tilts
     /// the focused item by this, so it seems to move under your thumb.
     public var onTouchRest: ((SIMD2<Float>?) -> Void)?
+    /// Every move of a finger on the touch surface, alongside the swipes it makes.
+    public var onTouch: ((TouchSample) -> Void)?
+    /// A direction on the clickpad's ring let go, after its press (and any repeats).
+    public var onRelease: ((RemoteCommand) -> Void)?
     public var onStatusChange: ((Status) -> Void)?
     /// Human-readable notes for debugging, e.g. a button this module doesn't recognize yet.
     public var onDiagnostic: ((String) -> Void)?
@@ -94,6 +117,7 @@ public final class SiriRemote {
         started = true
 
         buttons.onEvent = { [weak self] in self?.onEvent?($0) }
+        buttons.onRelease = { [weak self] in self?.onRelease?($0) }
         buttons.onUnmapped = { [weak self] usage in
             self?.onDiagnostic?(String(format: "unrecognized button usage %02X:%02X", usage >> 16 == 0 ? 0x0C : usage >> 16, usage & 0xFFFF))
         }
@@ -102,6 +126,7 @@ public final class SiriRemote {
         buttons.onDevicesChanged = { [weak self] in self?.refreshStatus() }
         touch.onSwipe = { [weak self] in self?.onEvent?(RemoteEvent(command: $0, source: .swipe)) }
         touch.onRest = { [weak self] in self?.onTouchRest?($0) }
+        touch.onSample = { [weak self] in self?.onTouch?($0) }
         touch.onConnectedChanged = { [weak self] in self?.refreshStatus() }
         battery.onChange = { [weak self] in self?.refreshStatus() }
 

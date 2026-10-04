@@ -53,11 +53,13 @@ final class WebPool: NSObject {
         ucc.add(self, name: PageChannel.report)
         ucc.add(self, name: PageChannel.keyboard)
         ucc.add(self, name: PageChannel.console)
-        let spatialNav = s.spatialNav && !module.handlesNavigation
+        let navigation = ServiceModules.navigation(for: s)
+        let spatialNav = navigation == .spatial
         let ownNav = spatialNav ? module.spatialNavScript.map { [PageScript(source: $0, time: .start)] } : nil
+        let cursor = navigation == .cursor ? [PageScript(source: Scripts.cursorTargets, time: .start)] : []
         // The service's own hacks come last, and apply to its web view only.
         for script in Scripts.shared(spatialNav: spatialNav && ownNav == nil, pageLog: forwardsAllConsole) + (ownNav ?? [])
-            + module.scripts + (s.blocksAds ? module.adBlockScripts : []) + module.styles.map(PageScript.style) {
+            + cursor + module.scripts + (s.blocksAds && module.allowsAdBlocking ? module.adBlockScripts : []) + module.styles.map(PageScript.style) {
             ucc.addUserScript(script.userScript)
         }
         module.configure(config, for: s)

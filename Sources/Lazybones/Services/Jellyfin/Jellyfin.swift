@@ -4,7 +4,7 @@ import Foundation
 struct Jellyfin: ServiceModule {
     let service = Service(
         id: "jellyfin", name: "Jellyfin", url: URL(string: "http://localhost:8096/web/")!,
-        tint: RGB(0.0, 0.45, 0.7), agent: .tv, spatialNav: false,
+        tint: RGB(0.0, 0.45, 0.7), agent: .tv, navigation: .keys,
         symbol: "play.square.stack.fill", tagline: "Your own media, on your own server",
         accentTint: RGB(0.67, 0.36, 0.76), builtIn: true)
     let brand: Brand? = Brand(

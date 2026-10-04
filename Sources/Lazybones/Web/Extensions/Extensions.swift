@@ -86,10 +86,11 @@ final class Extensions: NSObject, ObservableObject, WKWebExtensionControllerDele
 
     // MARK: Apps
 
-    /// Whether `e` acts on `s`'s site at all: uBlock Origin Lite everywhere, SponsorBlock only on YouTube.
-    /// uBlock Origin Lite's switch also covers the app's own ad blocking, so it counts even unloaded.
+    /// Whether `e` acts on `s`'s site at all: uBlock Origin Lite everywhere its filters don't break the
+    /// site, SponsorBlock only on YouTube. uBlock Origin Lite's switch also covers the app's own ad
+    /// blocking, so it counts even unloaded.
     func applies(_ e: BundledExtension, to s: Service) -> Bool {
-        if e == .uBlockOriginLite { return true }
+        if e == .uBlockOriginLite { return ServiceModules.module(for: s).allowsAdBlocking }
         guard let ext = contexts[e]?.webExtension else { return false }
         return ext.allRequestedMatchPatterns.contains { $0.matchesAllURLs || $0.matches(s.url) }
     }

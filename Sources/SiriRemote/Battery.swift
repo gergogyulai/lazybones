@@ -31,10 +31,12 @@ final class BatteryMonitor {
                   let name = d[kIOPSNameKey] as? String, serials.contains(name) else { continue }
             let current = d[kIOPSCurrentCapacityKey] as? Int ?? 0
             let max = d[kIOPSMaxCapacityKey] as? Int ?? 100
+            let pluggedIn = (d[kIOPSPowerSourceStateKey] as? String) == kIOPSACPowerValue
+            // The remote can report charging while on battery power, so only believe it plugged in.
             return SiriRemote.Battery(
                 percent: max > 0 ? current * 100 / max : current,
-                charging: d[kIOPSIsChargingKey] as? Bool ?? false,
-                pluggedIn: (d[kIOPSPowerSourceStateKey] as? String) == kIOPSACPowerValue
+                charging: pluggedIn && d[kIOPSIsChargingKey] as? Bool ?? false,
+                pluggedIn: pluggedIn
             )
         }
         return nil

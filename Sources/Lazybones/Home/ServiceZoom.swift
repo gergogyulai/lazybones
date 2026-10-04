@@ -20,6 +20,9 @@ struct ServiceLayer: View {
 
             ZStack {
                 WebContainer(webView: webView, takesFocus: model.active?.id == service.id)
+                if model.cursor.serviceID == service.id, model.zoomed {
+                    CursorView(cursor: model.cursor)
+                }
                 if let failure = model.failures[service.id] {
                     FailureScreen(service: service, failure: failure, size: geo.size, presses: model.presses) {
                         model.retry(service)

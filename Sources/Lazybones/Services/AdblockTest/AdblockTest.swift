@@ -3,7 +3,7 @@ import Foundation
 struct AdblockTest: ServiceModule {
     let service = Service(
         id: "adblock", name: "Ad-block test", url: URL(string: "https://adblock-tester.com")!,
-        tint: RGB(0.08, 0.3, 0.15), agent: .safari, spatialNav: true,
+        tint: RGB(0.08, 0.3, 0.15), agent: .safari, navigation: .spatial,
         symbol: "shield.lefthalf.filled", tagline: "Check that uBlock Origin Lite is doing its job",
         accentTint: RGB(0.2, 0.65, 0.35), builtIn: true)
 

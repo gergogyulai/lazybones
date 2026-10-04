@@ -3,7 +3,7 @@ import Foundation
 struct YouTube: ServiceModule {
     let service = Service(
         id: "youtube", name: "YouTube", url: URL(string: "https://www.youtube.com/tv")!,
-        tint: RGB(0.8, 0.0, 0.0), agent: .tv, spatialNav: false,
+        tint: RGB(0.8, 0.0, 0.0), agent: .tv, navigation: .keys,
         symbol: "play.rectangle.fill", tagline: "Subscriptions, music and everything in between",
         accentTint: RGB(1.0, 0.2, 0.2), builtIn: true)
     let brand: Brand? = Brand(
