@@ -9,6 +9,7 @@ struct SettingsScreenView: View {
     @EnvironmentObject var model: AppModel
     @EnvironmentObject var tv: TVLink
     @EnvironmentObject var diagnostics: Diagnostics
+    @EnvironmentObject var adBlock: AdBlockOptions
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {

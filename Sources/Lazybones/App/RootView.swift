@@ -71,5 +71,6 @@ struct RootView: View {
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }
         .onChange(of: model.settingsRequests) { openWindow(id: SettingsView.windowID) }
         .onChange(of: model.debugWindowRequests) { openWindow(id: DebugWindow.windowID) }
+        .onChange(of: model.adBlockerSettingsRequests) { openWindow(id: AdBlockerSettingsWindow.windowID) }
     }
 }

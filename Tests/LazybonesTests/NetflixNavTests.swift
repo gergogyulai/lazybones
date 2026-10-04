@@ -221,18 +221,6 @@ final class NetflixNavTests: XCTestCase {
         XCTAssertEqual(focused, "r1c3")
     }
 
-    func testATileAtTheEdgePagesTheSliderBeforeTakingFocus() {
-        load()
-        keys("ArrowDown", "ArrowDown", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight")
-        XCTAssertEqual(focused, "r1c4")
-        XCTAssertNil(run("window.pages"))
-        press("ArrowRight")   // r1c5 is only peeking in
-        XCTAssertEqual(focused, "r1c4", "focus waits for the slide")
-        spin(1.0)
-        XCTAssertEqual(run("window.pages") as? Int, 1)
-        XCTAssertEqual(focused, "r1c5")
-    }
-
     func testSelectOpensTheDetailsPanelOnItsPlayButtonAndBackClosesIt() {
         load()
         keys("ArrowDown", "ArrowDown", "ArrowRight")

@@ -8,6 +8,7 @@ struct ControlCenterView: View {
     @EnvironmentObject var diagnostics: Diagnostics
     @EnvironmentObject var cc: ControlCenter
     @EnvironmentObject var tv: TVLink
+    @EnvironmentObject var sleepTimer: SleepTimer
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// Carries out an action that reaches outside the panel.
     let perform: (ControlCenter.Action) -> Void
@@ -33,6 +34,7 @@ struct ControlCenterView: View {
                     }
                     volumeTile(u)
                     outputTile(u)
+                    sleepTimerTile(u)
                     networkCard(u)
                     HStack(spacing: 18 * u) {
                         if cc.canReload { smallTile(.reload, "arrow.clockwise", "Reload", u) }
@@ -193,6 +195,45 @@ struct ControlCenterView: View {
         }
         .tile(focused: focused, u: u, expanded: cc.outputExpanded, presses: presses)
         .onTapGesture { cc.focus = .output; _ = cc.handle(.select) }
+    }
+
+    private func sleepTimerTile(_ u: CGFloat) -> some View {
+        let focused = cc.focus == .sleepTimer && !cc.outputExpanded
+        return HStack(spacing: 14 * u) {
+            Image(systemName: "timer")
+                .font(.system(size: 26 * u, weight: .semibold))
+                .foregroundStyle(sleepTimer.isOn && !focused ? .blue : focused ? .black : .white)
+                .frame(width: 34 * u)
+            VStack(alignment: .leading, spacing: 2 * u) {
+                Text("Sleep Timer").font(.system(size: 15 * u, weight: .medium)).opacity(0.6)
+                if let end = sleepTimer.endsAt {
+                    TimelineView(.periodic(from: .now, by: 1)) { ctx in
+                        Text(SleepTimer.label(remaining: end.timeIntervalSince(ctx.date)))
+                            .contentTransition(.numericText())
+                    }
+                    .font(.system(size: 20 * u, weight: .semibold))
+                    .monospacedDigit()
+                } else {
+                    Text("Off").font(.system(size: 20 * u, weight: .semibold))
+                }
+            }
+            Spacer()
+            if let end = sleepTimer.endsAt {
+                Text("until \(end.formatted(.dateTime.hour().minute()))")
+                    .font(.system(size: 16 * u, weight: .medium))
+                    .monospacedDigit()
+                    .opacity(0.6)
+            }
+            // Left and right change the length, so say so while it's focused.
+            if focused {
+                Image(systemName: "chevron.left.chevron.right")
+                    .font(.system(size: 16 * u, weight: .bold))
+                    .opacity(0.6)
+            }
+        }
+        .padding(20 * u)
+        .tile(focused: focused, u: u, presses: presses)
+        .onTapGesture { cc.focus = .sleepTimer; _ = cc.handle(.select) }
     }
 
     private func networkCard(_ u: CGFloat) -> some View {

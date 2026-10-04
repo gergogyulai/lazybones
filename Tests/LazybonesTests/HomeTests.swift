@@ -534,7 +534,7 @@ final class AppModelTests: XCTestCase {
 final class ControlCenterQuitTests: XCTestCase {
     private func controlCenter() -> ControlCenter {
         let tv = TVLink()
-        return ControlCenter(audio: VolumeRouter(tv: tv) { _, _ in }, tv: tv)
+        return ControlCenter(audio: VolumeRouter(tv: tv) { _, _ in }, tv: tv, sleepTimer: SleepTimer())
     }
 
     private func focusQuit(_ cc: ControlCenter) {

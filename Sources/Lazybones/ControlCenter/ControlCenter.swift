@@ -8,7 +8,7 @@ import SwiftUI
 /// panel come back to AppModel as an `Action`.
 @MainActor
 final class ControlCenter: ObservableObject {
-    enum Item: Hashable { case home, displayOff, tvOff, quit, volume, output, reload, sleepMode, debug, settings }
+    enum Item: Hashable { case home, displayOff, tvOff, quit, volume, output, sleepTimer, reload, sleepMode, debug, settings }
     enum Action { case close, home, displayOff, tvOff, quit, reload, toggleSleepMode, toggleDebug, settings }
 
     @Published var isOpen = false
@@ -28,11 +28,13 @@ final class ControlCenter: ObservableObject {
     /// Quit was clicked once and waits for a second click, so a stray click can't close the app.
     @Published private(set) var confirmingQuit = false
 
+    let sleepTimer: SleepTimer
     private let audio: VolumeRouter
     private let tv: TVLink
     private let networkMonitor = NetworkMonitor()
 
-    init(audio: VolumeRouter, tv: TVLink) {
+    init(audio: VolumeRouter, tv: TVLink, sleepTimer: SleepTimer) {
+        self.sleepTimer = sleepTimer
         self.audio = audio
         self.tv = tv
         networkMonitor.onChange = { [weak self] in self?.network = $0 }
@@ -41,7 +43,7 @@ final class ControlCenter: ObservableObject {
 
     var rows: [[Item]] {
         [[.home, .displayOff] + (tv.status == .connected ? [.tvOff] : []) + [.quit],
-         [.volume], [.output],
+         [.volume], [.output], [.sleepTimer],
          (canReload ? [.reload] : []) + (showsSleepMode ? [.sleepMode] : []) + [.debug, .settings]]
     }
 
@@ -82,6 +84,7 @@ final class ControlCenter: ObservableObject {
         case .left, .right:
             let step = command == .left ? -1 : 1
             if focus == .volume { changeVolume(by: 6 * step) }
+            else if focus == .sleepTimer { sleepTimer.step(step) }
             else if rows[r].indices.contains(c + step) { withAnimation(Motion.focus) { focus = rows[r][c + step] } }
         case .select: return activate()
         case .back: return .close
@@ -114,6 +117,7 @@ final class ControlCenter: ObservableObject {
             }
         case .reload: return .reload
         case .sleepMode: return .toggleSleepMode
+        case .sleepTimer: sleepTimer.toggle()
         case .debug: return .toggleDebug
         case .settings: return .settings
         case .volume:

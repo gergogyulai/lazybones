@@ -50,6 +50,8 @@ final class AppModel: ObservableObject {
     @Published private(set) var settingsRequests = 0
     /// Bumped to ask the UI to open the debug window.
     @Published private(set) var debugWindowRequests = 0
+    /// Bumped to ask the UI to open uBlock Origin Lite's own settings.
+    @Published private(set) var adBlockerSettingsRequests = 0
     /// The TV being paired from the settings screen, and how that went.
     @Published private(set) var tvPairing: String?
     @Published private(set) var tvPairError: String?
@@ -67,6 +69,7 @@ final class AppModel: ObservableObject {
     let diagnostics: Diagnostics
     let volume: VolumeController
     let controlCenter: ControlCenter
+    let sleepTimer = SleepTimer()
     let simulator = RemoteSimulator()
     /// The pointer in apps that use one.
     private(set) lazy var cursor = CursorController(web: web)
@@ -119,7 +122,7 @@ final class AppModel: ObservableObject {
         self.diagnostics = diagnostics
         self.sounds = sounds ?? UISounds()
         self.volume = VolumeController(router: router)
-        self.controlCenter = ControlCenter(audio: router, tv: tv)
+        self.controlCenter = ControlCenter(audio: router, tv: tv, sleepTimer: sleepTimer)
 
         keyboardBridge = KeyboardBridge(keyboard: keyboard, web: web,
                                         activeService: { [weak self] in self?.active },
@@ -133,6 +136,7 @@ final class AppModel: ObservableObject {
 
     private func wireUp() {
         remote.onEvent = { [weak self] in self?.handle($0) }
+        sleepTimer.onFire = { [weak self] in self?.sleepTimerFired() }
         remote.onTouchRest = { [weak self] in self?.touchRested($0) }
         simulator.onEvent = { [weak self] in self?.handle($0, simulated: true) }
         simulator.onRest = { [weak self] in self?.touchRested($0) }
@@ -687,6 +691,8 @@ final class AppModel: ObservableObject {
     /// Opens the debug window (⌥⌘D).
     func openDebugWindow() { debugWindowRequests += 1 }
 
+    func openAdBlockerSettings() { adBlockerSettingsRequests += 1 }
+
     func setSleepMode(_ on: Bool) {
         guard on != sleepMode else { return }
         sleepMode = on
@@ -696,6 +702,20 @@ final class AppModel: ObservableObject {
     }
 
     func toggleSleepMode() { setSleepMode(!sleepMode) }
+
+    func toggleSleepTimer() {
+        sleepTimer.toggle()
+        diagnostics.log(sleepTimer.isOn ? "sleep timer \(sleepTimer.minutes) min" : "sleep timer off")
+    }
+
+    /// The sleep timer ran out: stop everything playing, then turn off the TV, or the display if
+    /// there's no TV to turn off.
+    private func sleepTimerFired() {
+        diagnostics.log("sleep timer fired")
+        for s in settings.services { web.pause(s) }
+        if controlCenter.isOpen { controlCenter.close() }
+        if tv.status == .connected { tv.turnOff() } else { SystemSleep.displays() }
+    }
 
     func pair(_ found: FoundTV) {
         guard tvPairing == nil else { return }

@@ -17,11 +17,13 @@ struct LazybonesApp: App {
             RootView()
                 .environmentObject(model)
                 .environmentObject(model.controlCenter)
+                .environmentObject(model.sleepTimer)
                 .environmentObject(model.switcher)
                 .environmentObject(model.settingsScreen)
                 .environmentObject(model.tv)
                 .environmentObject(model.keyboard)
                 .environmentObject(model.diagnostics)
+                .environmentObject(model.extensions.adBlock)
                 .environmentObject(model.volume)
                 .environmentObject(model.parallax)
                 .frame(minWidth: 960, minHeight: 540)
@@ -33,6 +35,7 @@ struct LazybonesApp: App {
                 Button("App Switcher") { model.openSwitcher() }.keyboardShortcut("a", modifiers: [.command, .shift])
                 Button("Control Center") { model.toggleControlCenter() }.keyboardShortcut("c", modifiers: [.command, .shift])
                 Button("Sleep Mode") { model.toggleSleepMode() }.keyboardShortcut("s", modifiers: [.command, .shift])
+                Button("Sleep Timer") { model.toggleSleepTimer() }.keyboardShortcut("t", modifiers: [.command, .shift])
                 Button("Launcher Settings") { model.openSettingsScreen() }.keyboardShortcut(",", modifiers: [.command, .option])
                 Button("Toggle Debug") { model.diagnostics.toggle() }.keyboardShortcut("d", modifiers: [.command, .shift])
                 Button("Debug Window") { model.openDebugWindow() }.keyboardShortcut("i", modifiers: [.command, .option])
@@ -63,6 +66,14 @@ struct LazybonesApp: App {
         .windowResizability(.contentSize)
         .restorationBehavior(.disabled)
         .defaultPosition(.center)
+        .commandsRemoved()
+
+        Window("uBlock Origin Lite Settings", id: AdBlockerSettingsWindow.windowID) {
+            AdBlockerSettingsWindow(extensions: model.extensions)
+        }
+        .defaultSize(width: 900, height: 700)
+        .defaultPosition(.center)
+        .restorationBehavior(.disabled)
         .commandsRemoved()
 
         Window("Lazybones Debug", id: DebugWindow.windowID) {

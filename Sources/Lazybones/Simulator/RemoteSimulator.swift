@@ -315,7 +315,9 @@ final class RemoteSimulator: ObservableObject {
     func show() {
         if panel == nil {
             let host = NSHostingController(rootView: RemoteWindowContent().environmentObject(self))
-            host.sizingOptions = .preferredContentSize
+            // Sized by constraints, not `preferredContentSize`: with the unified toolbar the window
+            // and the preferred size chase each other until AppKit gives up and throws.
+            host.sizingOptions = .intrinsicContentSize
             // The content runs under the title bar and draws its own; no inset for it.
             host.safeAreaRegions = []
             let p = RemotePanel(simulator: self, contentSize: host.view.fittingSize)

@@ -1,73 +1,82 @@
 import SwiftUI
 import WebKit
 
+/// uBlock Origin Lite: whether it loaded, how hard it filters and what else it blocks, and at the
+/// bottom, a way to its own settings for everything else.
 struct AdBlockingSettings: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
-        ExtensionPane(page: .adBlocking, bundled: .uBlockOriginLite, extensions: model.extensions,
-                      isOn: \.blocksAds, header: "Block Ads In",
-                      footer: "An app reloads when you change this. YouTube’s TV app gets its ads with its videos, where uBlock Origin Lite can’t reach them, so Lazybones takes them out itself while YouTube blocks ads.")
+        let extensions = model.extensions
+        SettingsPane(page: .adBlocking) {
+            Section {
+                LabeledContent(BundledExtension.uBlockOriginLite.name,
+                               value: extensions.status(.uBlockOriginLite).summary)
+            } footer: {
+                Text("Turn ad blocking on or off for an app in its own settings. YouTube’s TV app gets its ads with its videos, where uBlock Origin Lite can’t reach them, so Lazybones takes them out itself.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            AdBlockOptionsSections(options: extensions.adBlock)
+            Section {
+                LabeledContent {
+                    Button("Open…") { openWindow(id: AdBlockerSettingsWindow.windowID) }
+                        .disabled(extensions.contexts[.uBlockOriginLite]?.optionsPageURL == nil)
+                } label: {
+                    Text("uBlock Origin Lite Settings")
+                    Text("Every filter list, filtering modes for single sites, and your own filters.")
+                }
+            }
+        }
     }
 }
 
-/// A bundled extension: whether it loaded, its own settings page in a sheet, and a switch for
-/// each app it works on.
-private struct ExtensionPane: View {
-    let page: SettingsScreen.Page
-    let bundled: BundledExtension
-    @ObservedObject var extensions: Extensions
-    let isOn: WritableKeyPath<Service, Bool>
-    let header: String
-    let footer: String
-
-    @EnvironmentObject private var model: AppModel
-    @State private var showingOptions = false
+/// How hard uBlock Origin Lite filters, and what else it blocks, for every app that blocks ads.
+private struct AdBlockOptionsSections: View {
+    @ObservedObject var options: AdBlockOptions
 
     var body: some View {
-        SettingsPane(page: page) {
+        if let level = options.level {
             Section {
-                LabeledContent(bundled.name, value: extensions.status(bundled).summary)
-                LabeledContent {
-                    Button("Open…") { showingOptions = true }
-                        .disabled(extensions.contexts[bundled]?.optionsPageURL == nil)
-                } label: {
-                    Text("\(bundled.name) Settings")
-                    Text(bundled == .uBlockOriginLite
-                         ? "Filter lists, filtering modes and your own filters. They apply to every app that blocks ads."
-                         : "Which kinds of segments to skip, mute or just mark, and how.")
+                Picker("Blocking Level", selection: Binding(get: { level }, set: { options.set($0) })) {
+                    ForEach(AdBlockOptions.Level.allCases) { Text($0.title).tag($0) }
                 }
+                .pickerStyle(.segmented)
+            } footer: {
+                Text(level.detail)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
             }
             Section {
-                let apps = model.settings.services.indices.filter { extensions.applies(bundled, to: model.settings.services[$0]) }
-                if apps.isEmpty {
-                    Text("None of your apps")
-                        .foregroundStyle(.secondary)
-                }
-                ForEach(apps, id: \.self) { i in
-                    let s = model.settings.services[i]
-                    Toggle(isOn: $model.settings.services[i][dynamicMember: isOn]) {
-                        HStack(spacing: 12) {
-                            IconFace(service: s, height: 28, compact: true)
-                                .frame(width: 46, height: 28)
-                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(.primary.opacity(0.08)))
-                            Text(s.name)
-                        }
+                ForEach(AdBlockOptions.Extra.allCases) { extra in
+                    Toggle(isOn: Binding(get: { options.isOn(extra) }, set: { options.set(extra, on: $0) })) {
+                        Text(extra.title)
+                        Text(extra.detail)
                     }
                     .toggleStyle(.switch)
                 }
             } header: {
-                Text(header)
+                Text("Also Block")
             } footer: {
-                Text(footer)
+                Text("These apply to every app that blocks ads, the next time its page loads.")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
         }
-        .sheet(isPresented: $showingOptions) {
-            ExtensionOptionsSheet(bundled: bundled, extensions: extensions)
-        }
+    }
+}
+
+/// uBlock Origin Lite's own settings page in a window of its own, opened from the Mac's Settings
+/// and from the TV's. What's changed there shows in Lazybones' settings once it closes.
+struct AdBlockerSettingsWindow: View {
+    static let windowID = "ublock-settings"
+    let extensions: Extensions
+
+    var body: some View {
+        OptionsPage(bundled: .uBlockOriginLite, extensions: extensions)
+            .frame(minWidth: 700, minHeight: 500)
+            .onDisappear { Task { await extensions.adBlock.refresh() } }
     }
 }
 

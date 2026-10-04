@@ -69,17 +69,23 @@ final class Extensions: NSObject, ObservableObject, WKWebExtensionControllerDele
     /// Addresses each extension has been denied, because the apps there switched it off.
     private var denied: [BundledExtension: Set<WKWebExtension.MatchPattern>] = [:]
     private var services: [Service] = []
-    private let unfiltered = UnfilteredSites()
+    /// uBlock Origin Lite's settings that Lazybones shows itself.
+    let adBlock: AdBlockOptions
+    private let unfiltered: UnfilteredSites
     /// The latest change to uBlock Origin Lite's "no filtering" list, which each waits for.
     private var unfiltering: Task<Void, Never>?
     private let window = ExtensionWindow()
     private let inspector = ExtensionInspector()
 
     override init() {
+        let page = ExtensionPage()
+        adBlock = AdBlockOptions(page: page)
+        unfiltered = UnfilteredSites(page: page)
         super.init()
         controller.delegate = self
         controller.didOpenWindow(window)
         unfiltered.onStatus = { [weak self] in self?.onStatus?($0) }
+        adBlock.onStatus = { [weak self] in self?.onStatus?($0) }
     }
 
     func status(_ e: BundledExtension) -> Status { statuses[e] ?? .off }
@@ -170,6 +176,7 @@ final class Extensions: NSObject, ObservableObject, WKWebExtensionControllerDele
         update(for: services)
         // So an app opened at launch already has the filtering it asked for.
         await unfiltering?.value
+        if let context = contexts[.uBlockOriginLite] { await adBlock.refresh(in: context) }
     }
 
     private func load(_ e: BundledExtension, inspect: Bool) async {

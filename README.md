@@ -19,7 +19,7 @@ Lazybones turns a Mac connected to a TV into something you run from the couch wi
 - ⏭️ SponsorBlock on YouTube, skipping sponsor segments, intros and the like in the TV app too, with its own settings under YouTube in Settings > Apps
 - 🌙 Sleep Mode: dims the screen and filters blue light for every display and every app, video included
 - 🔈 Navigation sounds, synthesized in code: a warm low "dum" when focus moves, and a "dum-hit" with a brighter, higher note on top when you select (switch them off in Settings > General)
-- 🎛️ Control Center (hold the TV button): home, sleep, volume, output and network
+- 🎛️ Control Center (hold the TV button): home, sleep, volume, output, a sleep timer that pauses playback and turns off the TV or display, and network
 - 📡 A page that can't load says why, with Try Again, and tries again by itself once the network is back
 - 🧪 A debug overlay showing what each page reports about DRM, codecs and HDR, and an on-screen remote so you can develop without the hardware
 

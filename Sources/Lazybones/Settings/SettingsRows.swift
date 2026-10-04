@@ -123,23 +123,34 @@ extension AppModel {
         ]
     }
 
-    /// uBlock Origin Lite's status, a way to its own settings on the Mac, and a switch for each app it works on.
+    /// uBlock Origin Lite's status, how hard it filters and what else it blocks, and at the bottom a
+    /// way to its own settings. Whether an app blocks ads is in that app's settings.
     private var adBlockingRows: [SettingsRow] {
         let e = BundledExtension.uBlockOriginLite
-        let apps = settings.services.indices.filter { extensions.applies(e, to: settings.services[$0]) }
+        var rows = [SettingsRow(id: "\(e.id)-status", title: e.name, style: .value(extensions.status(e).summary))]
+        rows += adBlockOptionRows
+        if extensions.contexts[e]?.optionsPageURL != nil {
+            rows.append(SettingsRow(id: "\(e.id)-settings-header", title: "More", style: .header))
+            rows.append(SettingsRow(id: "\(e.id)-settings", title: "\(e.name) Settings", detail: "Every filter list and your own filters, in a window on the Mac",
+                                    style: .button, activate: { [unowned self] in openAdBlockerSettings() }))
+        }
+        rows.append(SettingsRow(id: "\(e.id)-note", title: "Turn ad blocking on or off for an app in its own settings.", style: .note))
+        return rows
+    }
+
+    private var adBlockOptionRows: [SettingsRow] {
+        let options = extensions.adBlock
+        guard let level = options.level else { return [] }
+        let step = { (n: Int) in options.set(cycled(level, n)) }
         return [
-            SettingsRow(id: "\(e.id)-status", title: e.name, style: .value(extensions.status(e).summary)),
-            SettingsRow(id: "\(e.id)-settings", title: "\(e.name) Settings", detail: "Filter lists, filtering modes and your own filters, on the Mac",
-                        style: .button, activate: { [unowned self] in openMacSettings(at: .adBlocking) }),
-            SettingsRow(id: "\(e.id)-header", title: "Block Ads In", style: .header),
-        ] + apps.map { i in
-            let s = settings.services[i]
-            return SettingsRow(id: "\(e.id)-\(s.id)", title: s.name, style: .toggle(s.blocksAds),
-                               activate: { [unowned self] in settings.services[i].blocksAds.toggle() })
-        } + [
-            SettingsRow(id: "\(e.id)-note", title: apps.isEmpty ? "It doesn’t work on any of your apps." : "An app reloads when you change this.",
-                        style: .note),
-        ]
+            SettingsRow(id: "adblock-level", title: "Blocking Level", detail: level.detail, style: .value(level.title),
+                        adjust: step, activate: { step(1) }),
+            SettingsRow(id: "adblock-extras-header", title: "Also Block", style: .header),
+        ] + AdBlockOptions.Extra.allCases.map { extra in
+            let on = options.isOn(extra)
+            return SettingsRow(id: "adblock-\(extra.id)", title: extra.title, detail: extra.detail, style: .toggle(on),
+                               activate: { options.set(extra, on: !on) })
+        }
     }
 
     private var sleepModeRows: [SettingsRow] {
