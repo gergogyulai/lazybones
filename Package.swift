@@ -16,9 +16,11 @@ let package = Package(
         .target(name: "LGTV"),
         // Mac audio outputs, per-device volume and network state (CoreAudio, CoreWLAN, Network).
         .target(name: "MacSystem"),
+        // The iPhone's Apple TV Remote, answered as an Apple TV (atv-core, built from Native/AppleTVBridge).
+        .target(name: "PhoneRemote"),
         // The launcher app.
-        .executableTarget(name: "Lazybones", dependencies: ["SiriRemote", "LGTV", "MacSystem"]),
-        .testTarget(name: "LazybonesTests", dependencies: ["Lazybones", "LGTV", "MacSystem"]),
+        .executableTarget(name: "Lazybones", dependencies: ["SiriRemote", "LGTV", "MacSystem", "PhoneRemote"]),
+        .testTarget(name: "LazybonesTests", dependencies: ["Lazybones", "LGTV", "MacSystem", "PhoneRemote"]),
     ],
     swiftLanguageModes: [.v5]
 )

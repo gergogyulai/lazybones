@@ -18,6 +18,9 @@ final class SettingsTests: XCTestCase {
         XCTAssertEqual(s.focusSize, .medium)
         XCTAssertEqual(s.iconLabels, .focused)
         XCTAssertTrue(s.showClock)
+        XCTAssertTrue(s.keepAwake)
+        XCTAssertTrue(s.phoneRemote)
+        XCTAssertNil(s.phoneRemoteIdentity)
     }
 
     func testAnUnknownHomeStyleFallsBackToTheDefault() throws {

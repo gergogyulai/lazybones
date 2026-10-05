@@ -130,6 +130,7 @@ private struct EventReadout: View {
                     case .simulator: EmptyView()
                     case .hardware: tag("REMOTE", .blue)
                     case .control: tag("CTL", .purple)
+                    case .phone: tag("IPHONE", .green)
                     }
                     Text(e.text)
                 }

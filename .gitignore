@@ -18,3 +18,6 @@ xcuserdata/
 
 # Built dev tools
 Tools/RemoteHUD/RemoteHUD
+
+# Rust build output
+/Native/*/target/

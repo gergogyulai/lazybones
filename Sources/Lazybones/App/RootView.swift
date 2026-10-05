@@ -66,6 +66,11 @@ struct RootView: View {
             if controlCenter.isOpen {
                 ControlCenterView(perform: model.perform, presses: model.presses)
             }
+            if case .pairing(let pin) = model.phoneStatus {
+                PhonePairingView(name: model.settings.phoneRemoteIdentity?.name ?? "Lazybones", pin: pin,
+                                 u: max(width / 1920, 0.5))
+                    .transition(.opacity)
+            }
         }
         .preferredColorScheme(.dark)
         .onGeometryChange(for: CGFloat.self) { $0.size.width } action: { width = $0 }

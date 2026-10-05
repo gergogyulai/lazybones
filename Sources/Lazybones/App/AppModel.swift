@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import LGTV
 import MacSystem
+import PhoneRemote
 import SiriRemote
 import SwiftUI
 
@@ -57,6 +58,10 @@ final class AppModel: ObservableObject {
     @Published private(set) var tvPairError: String?
 
     let remote = SiriRemote()
+    /// The iPhone's Apple TV Remote, which sees Lazybones as an Apple TV.
+    let phone = PhoneRemote()
+    @Published private(set) var phoneStatus = PhoneRemote.Status.off
+    private var phoneInput = PhoneInput()
     let tv = TVLink()
     let web = WebPool()
     let extensions = Extensions()
@@ -65,6 +70,7 @@ final class AppModel: ObservableObject {
     let settingsScreen = SettingsScreen()
     let tint = ScreenTint()
     let keyboardLight = KeyboardBacklight()
+    let stayAwake = StayAwake()
     let parallax = Parallax()
     let sounds: UISounds
     let diagnostics: Diagnostics
@@ -104,6 +110,7 @@ final class AppModel: ObservableObject {
     private var lastPointer = NSEvent.mouseLocation
     private var makingSounds = false
     private var networkChanges: AnyCancellable?
+    private var phoneNetwork: AnyCancellable?
     private var control: DevControl?
 
     /// `store`, `startsRemote` and `sounds` are for tests, which mustn't touch the user's settings, the
@@ -146,6 +153,20 @@ final class AppModel: ObservableObject {
         remote.onRelease = { [weak self] in self?.cursor.release($0) }
         simulator.onRelease = { [weak self] in self?.cursor.release($0) }
         simulator.touchMovesCursor = { [weak self] in self?.cursorTakesTouch ?? false }
+        phone.onEvent = { [weak self] in self?.phoneEvent($0) }
+        phone.verbose = options.phoneDebug
+        phone.onDiagnostic = { [weak self] in self?.diagnostics.log("iPhone: \($0)", .remote) }
+        phone.onStatusChange = { [weak self] status in
+            // The pairing code fades in and out.
+            withAnimation(Motion.crossfade) { self?.phoneStatus = status }
+            if case .unavailable(let why) = status {
+                self?.diagnostics.log("iPhone remote unavailable: \(why)", .remote, level: .warning)
+            }
+        }
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil,
+                                               queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.phone.stop() }
+        }
         cursor.service = { [weak self] id in self?.settings.services.first { $0.id == id } }
         cursor.isPlaying = { [weak self] id in self?.playing.contains(id) ?? false }
         remote.onDiagnostic = { [weak self] in self?.diagnostics.log($0, .remote) }
@@ -197,6 +218,17 @@ final class AppModel: ObservableObject {
             .removeDuplicates()
             .filter { $0 }
             .sink { [weak self] _ in self?.retryAfterReconnecting() }
+        // The phone finds Lazybones at the address it advertised, so a new one means advertising
+        // again; and with no network at all to begin with, it couldn't start.
+        phoneNetwork = controlCenter.$network
+            .map(\.address)
+            .removeDuplicates()
+            .scan((String?.none, String?.none)) { ($0.1, $1) }
+            .sink { [weak self] old, new in
+                guard let self, new != nil else { return }
+                let failed = if case .unavailable = phoneStatus { true } else { false }
+                if old != nil || failed { applyPhoneRemote(restart: true) }
+            }
 
         settingsScreen.rowsProvider = { [weak self] in self?.settingsRows(for: $0) ?? [] }
 
@@ -211,6 +243,34 @@ final class AppModel: ObservableObject {
         keyboard.layout = settings.keyboardLayout
         volume.router.usesTV = settings.tvVolume
         sounds.isEnabled = settings.navigationSounds
+        stayAwake.isOn = settings.keepAwake
+        if startsRemote { applyPhoneRemote() }
+    }
+
+    /// The iPhone remote's state, for Settings.
+    var phoneRemoteSummary: String {
+        let name = settings.phoneRemoteIdentity.map { "“\($0.name)”" } ?? "Lazybones"
+        return switch phoneStatus {
+        case .off: "Off"
+        case .unavailable(let why): "Not available: \(why)"
+        case .waiting: "Choose \(name) in the Apple TV Remote in Control Center"
+        case .pairing(let pin): "Pairing: enter \(pin) on the iPhone"
+        case .connected: "Connected as \(name)"
+        }
+    }
+
+    /// Answers the iPhone's remote while the setting is on, as the name made at first launch.
+    private func applyPhoneRemote(restart: Bool = false) {
+        guard startsRemote, !options.noHardwareRemote, settings.phoneRemote else { return phone.stop() }
+        let identity: PhoneRemote.Identity
+        if let saved = settings.phoneRemoteIdentity {
+            identity = saved
+        } else {
+            identity = .generate()
+            settings.phoneRemoteIdentity = identity
+            store.save(settings)
+        }
+        if restart || phoneStatus == .off { phone.start(as: identity) }
     }
 
     private func launch() {
@@ -246,6 +306,21 @@ final class AppModel: ObservableObject {
         diagnostics.log("\(simulated ? "sim " : "")\(event.source) \(event.command)", .remote)
         if !simulated { simulator.mirror(event) }
         withSounds(for: event.command) { route(event, simulated: simulated) }
+    }
+
+    /// The iPhone's remote. Its buttons are the app's alone, as macOS never sees them.
+    private func phoneEvent(_ event: PhoneRemote.Event) {
+        for output in phoneInput.handle(event, at: ProcessInfo.processInfo.systemUptime) {
+            switch output {
+            case .event(let e):
+                if e.source == .swipe, cursorTakesTouch { continue }
+                diagnostics.log("iPhone \(e.source) \(e.command)", .remote)
+                simulator.mirror(e, from: .phone)
+                withSounds(for: e.command) { route(e, simulated: true) }
+            case .touch(let s): touched(s)
+            case .rest(let r): touchRested(r)
+            }
+        }
     }
 
     /// Whether a finger on the touch surface moves the cursor, rather than swiping: in an app that uses

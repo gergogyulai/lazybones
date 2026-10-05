@@ -1,6 +1,7 @@
 import Foundation
 import LGTV
 import MacSystem
+import PhoneRemote
 
 /// Everything the user can configure about the launcher. Saved by `SettingsStore`.
 struct LauncherSettings: Codable, Equatable {
@@ -22,6 +23,12 @@ struct LauncherSettings: Codable, Equatable {
     var startFullScreen = true
     /// Play a sound when focus moves and when a choice is made.
     var navigationSounds = true
+    /// Keep the Mac from sleeping and the screen saver from starting while Lazybones is open.
+    var keepAwake = true
+    /// Show up in the iPhone's Apple TV Remote, and take its buttons and touches.
+    var phoneRemote = true
+    /// The Apple TV the phone sees, made at first launch.
+    var phoneRemoteIdentity: PhoneRemote.Identity?
     var tv: TVConfig?
     /// Send volume to the paired TV when audio goes out over HDMI.
     var tvVolume = true
@@ -65,6 +72,9 @@ struct LauncherSettings: Codable, Equatable {
         showDebugOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .showDebugOnLaunch) ?? d.showDebugOnLaunch
         startFullScreen = try c.decodeIfPresent(Bool.self, forKey: .startFullScreen) ?? d.startFullScreen
         navigationSounds = try c.decodeIfPresent(Bool.self, forKey: .navigationSounds) ?? d.navigationSounds
+        keepAwake = try c.decodeIfPresent(Bool.self, forKey: .keepAwake) ?? d.keepAwake
+        phoneRemote = try c.decodeIfPresent(Bool.self, forKey: .phoneRemote) ?? d.phoneRemote
+        phoneRemoteIdentity = try c.decodeIfPresent(PhoneRemote.Identity.self, forKey: .phoneRemoteIdentity)
         tv = try c.decodeIfPresent(TVConfig.self, forKey: .tv)
         tvVolume = try c.decodeIfPresent(Bool.self, forKey: .tvVolume) ?? d.tvVolume
         keyboard = try c.decodeIfPresent(Bool.self, forKey: .keyboard) ?? d.keyboard

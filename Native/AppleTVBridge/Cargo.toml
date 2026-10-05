@@ -1,0 +1,23 @@
+[package]
+name = "lazybones-atv"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "C ABI over atv-core, so Lazybones can answer the iPhone's Apple TV Remote"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+# corvofeng/atv-core does the protocol work: Bonjour, SRP pairing and the encrypted Companion link.
+atv-core = { git = "https://github.com/corvofeng/atv-core", rev = "12623fc1d71c4f1ba0233d229f4b4fa78441f4ce" }
+tokio = { version = "1", features = ["rt-multi-thread", "sync"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", default-features = false, features = ["fmt", "std"] }
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+# No stripping: on macOS 27 it leaves dylibs dyld refuses ("mis-aligned LINKEDIT string pool").
+strip = false

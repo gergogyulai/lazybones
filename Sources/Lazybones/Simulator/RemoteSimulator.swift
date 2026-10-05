@@ -68,7 +68,7 @@ final class RemoteSimulator: ObservableObject {
     }
 
     /// Where an event came from, for the readout under the remote.
-    enum Origin { case simulator, hardware, control }
+    enum Origin { case simulator, hardware, control, phone }
 
     struct Echo: Identifiable, Equatable {
         let id: Int
@@ -115,10 +115,10 @@ final class RemoteSimulator: ObservableObject {
 
     // MARK: Events from elsewhere
 
-    /// An event from the real remote, shown but not sent (the app already has it).
-    func mirror(_ event: RemoteEvent) {
+    /// An event from the real remote or the iPhone, shown but not sent (the app already has it).
+    func mirror(_ event: RemoteEvent, from origin: Origin = .hardware) {
         guard isVisible else { return }
-        echo(event, from: .hardware)
+        echo(event, from: origin)
         flash(event.command)
     }
 

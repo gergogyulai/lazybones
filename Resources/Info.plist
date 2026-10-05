@@ -20,10 +20,14 @@
     <key>NSAppTransportSecurity</key>
     <dict><key>NSAllowsLocalNetworking</key><true/></dict>
 
-    <!-- Finding and controlling an LG TV on the local network. -->
+    <!-- Finding and controlling an LG TV on the local network, and showing up in the iPhone's Apple TV Remote. -->
     <key>NSLocalNetworkUsageDescription</key>
-    <string>Lazybones finds your LG TV on the network to control its volume and power.</string>
+    <string>Lazybones finds your LG TV on the network to control its volume and power, and shows up in your iPhone’s Apple TV Remote.</string>
     <key>NSBonjourServices</key>
-    <array><string>_airplay._tcp</string></array>
+    <array>
+        <string>_airplay._tcp</string>
+        <string>_companion-link._tcp</string>
+        <string>_mediaremotetv._tcp</string>
+    </array>
 </dict>
 </plist>

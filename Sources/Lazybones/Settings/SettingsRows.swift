@@ -234,6 +234,8 @@ extension AppModel {
         [
             toggle("fullscreen", "Open in Full Screen", \.startFullScreen, detail: "Takes effect the next time Lazybones opens"),
             toggle("sounds", "Navigation Sounds", \.navigationSounds, detail: "A soft tone when focus moves, and a brighter one when you select"),
+            toggle("keep-awake", "Keep Mac Awake", \.keepAwake, detail: "No sleep and no screen saver while Lazybones is open"),
+            toggle("phone-remote", "iPhone Remote", \.phoneRemote, detail: phoneRemoteSummary),
             toggle("debug-launch", "Show Debug Overlay at Launch", \.showDebugOnLaunch),
             SettingsRow(id: "debug", title: "Debug Overlay", detail: "DRM, codecs and HDR for the open app",
                         style: .toggle(diagnostics.isVisible), activate: { [unowned self] in diagnostics.toggle() }),

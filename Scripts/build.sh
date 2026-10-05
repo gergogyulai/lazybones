@@ -45,5 +45,17 @@ cp Resources/Brands/*.{pdf,svg,png} "$APP/Contents/Resources/Brands/"
 [[ -d Extensions/SponsorBlock ]] || Scripts/fetch-sponsorblock.sh || echo "warning: building without SponsorBlock" >&2
 [[ -d Extensions/SponsorBlock ]] && cp -R Extensions/SponsorBlock "$APP/Contents/Resources/SponsorBlock"
 
+# The iPhone's Apple TV Remote talks to atv-core, built from Native/AppleTVBridge (needs Rust).
+# Without it Lazybones still works, just without the iPhone remote.
+min_macos=$(sed -n 's/^.*LSMinimumSystemVersion<\/key><string>\([^<]*\).*$/\1/p' Resources/Info.plist)
+if command -v cargo >/dev/null; then
+    MACOSX_DEPLOYMENT_TARGET=$min_macos cargo build --release --quiet --manifest-path Native/AppleTVBridge/Cargo.toml
+    mkdir -p "$APP/Contents/Frameworks"
+    cp Native/AppleTVBridge/target/release/liblazybones_atv.dylib "$APP/Contents/Frameworks/"
+    codesign --force --sign - "$APP/Contents/Frameworks/liblazybones_atv.dylib"
+else
+    echo "warning: building without the iPhone remote (install Rust: https://rustup.rs)" >&2
+fi
+
 codesign --force --sign - "$APP"
 echo "built $APP"

@@ -26,8 +26,10 @@ struct LaunchOptions: Equatable {
     var control = false
     /// Start from default settings, kept apart from (and without touching) the real ones.
     var freshSettings = false
-    /// Leave the Siri Remote alone, e.g. for a second instance next to one that's using it.
+    /// Leave the Siri Remote (and the iPhone's) alone, e.g. for a second instance next to one that's using it.
     var noHardwareRemote = false
+    /// Log the iPhone remote's whole conversation.
+    var phoneDebug = false
 
     /// Whether `Scripts/ctl.sh` can drive the app.
     var acceptsControl: Bool {
@@ -52,7 +54,8 @@ struct LaunchOptions: Equatable {
     --page-log        forward everything pages log, not just warnings and errors
     --control         take commands from Scripts/ctl.sh (always on in debug builds)
     --fresh-settings  start from default settings, without touching the saved ones
-    --no-hw-remote    leave the Siri Remote to another instance (the on-screen one still works)
+    --no-hw-remote    leave the Siri Remote and the iPhone to another instance (the on-screen one still works)
+    --phone-debug     log every message the iPhone remote sends, not just connections and pairing
     """
 
     init() {}
@@ -73,6 +76,7 @@ struct LaunchOptions: Equatable {
             case "--control": control = true
             case "--fresh-settings": freshSettings = true
             case "--no-hw-remote": noHardwareRemote = true
+            case "--phone-debug": phoneDebug = true
             default: break
             }
         }
