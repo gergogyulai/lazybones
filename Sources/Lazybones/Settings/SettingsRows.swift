@@ -14,6 +14,7 @@ extension AppModel {
         case .keyboard: keyboardRows
         case .tv: tvRows
         case .general: generalRows
+        case .about: aboutRows
         }
     }
 
@@ -24,7 +25,13 @@ extension AppModel {
             SettingsRow(id: "columns", title: "Apps per Row", style: .value("\(settings.columns)"),
                         adjust: { [unowned self] in settings.columns = min(max(settings.columns + $0, 3), 7) },
                         activate: { [unowned self] in settings.columns = settings.columns >= 7 ? 3 : settings.columns + 1 }),
+            choice("focus-size", "Focused App Size", \.focusSize, title: \.title),
+            choice("icon-labels", "App Names", \.iconLabels, title: \.title),
             toggle("shelf", "Top Shelf", \.showShelf, detail: "Big artwork above the apps for the focused app"),
+            toggle("shelf-motion", "Animated Artwork", \.shelfMotion, detail: "Light drifts slowly through the top shelf"),
+            toggle("clock", "Clock", \.showClock, detail: "The time, beside Settings above the apps"),
+            SettingsRow(id: "motion-header", title: "Motion", style: .header),
+            choice("home-motion", "Focus Motion", \.homeMotion, title: \.title, detail: settings.homeMotion.detail),
             toggle("hints", "Control Hints", \.showHints, detail: "Button tips on the Home Screen, the app switcher, Settings and the keyboard"),
         ]
     }
@@ -232,7 +239,15 @@ extension AppModel {
                         style: .toggle(diagnostics.isVisible), activate: { [unowned self] in diagnostics.toggle() }),
             SettingsRow(id: "mac-settings", title: "Open Settings on the Mac", detail: "Names, addresses and colors of apps (⌘,)",
                         style: .button, activate: { [unowned self] in openMacSettings() }),
-            SettingsRow(id: "version", title: "Version", style: .value(Self.version)),
+        ]
+    }
+
+    /// What this build is and what it's running on, as in the About window.
+    private var aboutRows: [SettingsRow] {
+        AboutInfo.current.rows.map { SettingsRow(id: "about-\($0.label)", title: $0.label, style: .value($0.value)) } + [
+            SettingsRow(id: "about-mac", title: "Copy Info, Source Code and Issues", detail: "In Settings on the Mac (⌘,)",
+                        style: .button, activate: { [unowned self] in openMacSettings(at: .about) }),
+            SettingsRow(id: "about-note", title: AboutInfo.credits, style: .note),
         ]
     }
 
@@ -242,6 +257,14 @@ extension AppModel {
                         detail: String? = nil) -> SettingsRow {
         SettingsRow(id: id, title: title, detail: detail, style: .toggle(settings[keyPath: key]),
                     activate: { [unowned self] in settings[keyPath: key].toggle() })
+    }
+
+    /// A setting with a few named values, stepped through with ◀ ▶ or a click.
+    private func choice<T: CaseIterable & Equatable>(_ id: String, _ title: String, _ key: WritableKeyPath<LauncherSettings, T>,
+                                                     title name: KeyPath<T, String>, detail: String? = nil) -> SettingsRow {
+        let step = { [unowned self] (n: Int) in settings[keyPath: key] = cycled(settings[keyPath: key], n) }
+        return SettingsRow(id: id, title: title, detail: detail, style: .value(settings[keyPath: key][keyPath: name]),
+                           adjust: step, activate: { step(1) })
     }
 
     /// Moves an app along the Home Screen, and the focused row with it.
@@ -257,8 +280,6 @@ extension AppModel {
     }
 
     private func percent(_ fraction: Double) -> String { "\(Int((fraction * 100).rounded()))%" }
-
-    private static let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "dev"
 }
 
 private extension Double {

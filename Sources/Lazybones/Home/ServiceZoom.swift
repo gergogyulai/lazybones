@@ -123,7 +123,8 @@ extension AppModel {
             return (CGRect(x: (window.width - w) / 2, y: (window.height - h) / 2, width: w, height: h), w * 0.055)
         }
         let layout = LauncherLayout(size: launcherFrame.size, columns: columns, shelf: settings.showShelf,
-                                    count: visible.count, selected: focus.index, appFocused: !focus.onBar)
+                                    count: visible.count, selected: focus.index, appFocused: !focus.onBar,
+                                    focusScale: settings.focusSize.scale)
         let frame = layout.frame(of: i)
         return (frame.offsetBy(dx: launcherFrame.minX - window.minX, dy: launcherFrame.minY - window.minY),
                 layout.corner(of: i))

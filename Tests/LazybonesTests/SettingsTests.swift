@@ -14,6 +14,16 @@ final class SettingsTests: XCTestCase {
         XCTAssertTrue(s.showShelf)
         XCTAssertEqual(s.sleepDim, LauncherSettings().sleepDim)
         XCTAssertFalse(s.sleepInControlCenter)
+        XCTAssertEqual(s.homeMotion, .lively)
+        XCTAssertEqual(s.focusSize, .medium)
+        XCTAssertEqual(s.iconLabels, .focused)
+        XCTAssertTrue(s.showClock)
+    }
+
+    func testAnUnknownHomeStyleFallsBackToTheDefault() throws {
+        let s = try decode(#"{"homeMotion": "wobbly", "focusSize": "large"}"#)
+        XCTAssertEqual(s.homeMotion, .lively)
+        XCTAssertEqual(s.focusSize, .large)
     }
 
     func testAppsSavedBeforeExtensionsWerePerAppStillLoadWithThemOn() throws {

@@ -5,6 +5,8 @@ struct Metrics {
     let size: CGSize
     let columns: Int
     var shelf = true
+    /// How much the focused icon grows.
+    var focusScale = FocusSize.medium.scale
 
     var unit: CGFloat { max(size.width / 1920, 0.5) }
     var sidePadding: CGFloat { 90 * unit }
@@ -26,17 +28,15 @@ struct Metrics {
 /// Where everything on the home screen sits for a given focus. The launcher draws from it, and the
 /// zoom transition uses it to grow out of, and shrink back into, exactly the right icon.
 struct LauncherLayout {
-    /// How much the focused icon grows.
-    static let focusScale: CGFloat = 1.15
-
     let metrics: Metrics
     let count: Int
     let selected: Int
     /// Whether an app (rather than the top bar) has focus.
     let appFocused: Bool
 
-    init(size: CGSize, columns: Int, shelf: Bool, count: Int, selected: Int, appFocused: Bool = true) {
-        metrics = Metrics(size: size, columns: columns, shelf: shelf)
+    init(size: CGSize, columns: Int, shelf: Bool, count: Int, selected: Int, appFocused: Bool = true,
+         focusScale: CGFloat = FocusSize.medium.scale) {
+        metrics = Metrics(size: size, columns: columns, shelf: shelf, focusScale: focusScale)
         self.count = count
         self.selected = count > 0 ? min(max(selected, 0), count - 1) : 0
         self.appFocused = appFocused
@@ -59,12 +59,12 @@ struct LauncherLayout {
         let base = CGRect(x: m.sidePadding + CGFloat(c) * (m.tileWidth + m.gap),
                           y: m.rowTop(r) + scrollOffset, width: m.tileWidth, height: m.tileHeight)
         guard appFocused, index == selected else { return base }
-        let s = Self.focusScale
+        let s = metrics.focusScale
         return base.insetBy(dx: -base.width * (s - 1) / 2, dy: -base.height * (s - 1) / 2)
     }
 
     /// The corner radius of the icon at `index`, matching `frame(of:)`.
     func corner(of index: Int) -> CGFloat {
-        metrics.corner * (appFocused && index == selected ? Self.focusScale : 1)
+        metrics.corner * (appFocused && index == selected ? metrics.focusScale : 1)
     }
 }

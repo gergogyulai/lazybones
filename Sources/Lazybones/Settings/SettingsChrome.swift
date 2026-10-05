@@ -15,6 +15,7 @@ extension SettingsScreen.Page {
         case .keyboard: .gray
         case .tv: .teal
         case .general: .gray
+        case .about: .gray
         }
     }
 
@@ -28,6 +29,7 @@ extension SettingsScreen.Page {
         case .keyboard: "The on-screen keyboard that appears when a page’s text field is selected."
         case .tv: "Control an LG TV’s volume and power over the network, since Macs can’t send HDMI-CEC."
         case .general: "Startup, sounds and troubleshooting."
+        case .about: "This build of Lazybones, the Mac it’s running on, and where to report a problem."
         }
     }
 
@@ -43,7 +45,8 @@ extension SettingsScreen.Page {
         case .sleepMode: ["dim", "brightness", "blue light", "night", "warm", "keyboard", "backlight", "control center"]
         case .keyboard: ["text", "typing", "qwerty", "abc", "suggestions", "history", "search"]
         case .tv: ["lg", "webos", "volume", "power", "pair", "hdmi", "soundbar"]
-        case .general: ["full screen", "sounds", "debug", "version", "startup"]
+        case .general: ["full screen", "sounds", "debug", "startup"]
+        case .about: ["version", "build", "macos", "safari", "source", "github", "issue", "bug", "license"]
         }
     }
 

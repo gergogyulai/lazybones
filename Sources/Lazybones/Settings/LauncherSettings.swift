@@ -9,6 +9,12 @@ struct LauncherSettings: Codable, Equatable {
     var hidden: Set<String> = []
     var columns = 5
     var showShelf = true
+    /// Slow drifting light in the top shelf's artwork.
+    var shelfMotion = true
+    var showClock = true
+    var homeMotion = HomeMotion.lively
+    var focusSize = FocusSize.medium
+    var iconLabels = IconLabels.focused
     /// Button tips on the Home Screen, the app switcher, Settings and the keyboard. Off by default,
     /// as on tvOS; for learning the remote.
     var showHints = false
@@ -50,6 +56,11 @@ struct LauncherSettings: Codable, Equatable {
         hidden = try c.decodeIfPresent(Set<String>.self, forKey: .hidden) ?? d.hidden
         columns = try c.decodeIfPresent(Int.self, forKey: .columns) ?? d.columns
         showShelf = try c.decodeIfPresent(Bool.self, forKey: .showShelf) ?? d.showShelf
+        shelfMotion = try c.decodeIfPresent(Bool.self, forKey: .shelfMotion) ?? d.shelfMotion
+        showClock = try c.decodeIfPresent(Bool.self, forKey: .showClock) ?? d.showClock
+        homeMotion = (try? c.decodeIfPresent(HomeMotion.self, forKey: .homeMotion)) ?? d.homeMotion
+        focusSize = (try? c.decodeIfPresent(FocusSize.self, forKey: .focusSize)) ?? d.focusSize
+        iconLabels = (try? c.decodeIfPresent(IconLabels.self, forKey: .iconLabels)) ?? d.iconLabels
         showHints = try c.decodeIfPresent(Bool.self, forKey: .showHints) ?? d.showHints
         showDebugOnLaunch = try c.decodeIfPresent(Bool.self, forKey: .showDebugOnLaunch) ?? d.showDebugOnLaunch
         startFullScreen = try c.decodeIfPresent(Bool.self, forKey: .startFullScreen) ?? d.startFullScreen

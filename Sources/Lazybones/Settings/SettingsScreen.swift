@@ -38,7 +38,7 @@ struct SettingsRow: Identifiable {
 @MainActor
 final class SettingsScreen: ObservableObject {
     enum Page: String, CaseIterable, Identifiable {
-        case homeScreen, apps, adBlocking, sleepMode, keyboard, tv, general
+        case homeScreen, apps, adBlocking, sleepMode, keyboard, tv, general, about
 
         var id: String { rawValue }
 
@@ -51,6 +51,7 @@ final class SettingsScreen: ObservableObject {
             case .keyboard: "Keyboard"
             case .tv: "TV"
             case .general: "General"
+            case .about: "About"
             }
         }
 
@@ -63,6 +64,7 @@ final class SettingsScreen: ObservableObject {
             case .keyboard: "keyboard.fill"
             case .tv: "tv.fill"
             case .general: "gearshape.fill"
+            case .about: "info.circle.fill"
             }
         }
     }

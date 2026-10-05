@@ -91,6 +91,7 @@ struct SettingsView: View {
         case .keyboard: KeyboardSettings()
         case .tv: TVSettings()
         case .general: GeneralSettings()
+        case .about: AboutSettings()
         }
     }
 

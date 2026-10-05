@@ -6,27 +6,41 @@ struct ShelfArt: View {
     let service: Service
     let size: CGSize
     let unit: CGFloat
+    /// Lets the light in the artwork drift slowly, like a living backdrop. It holds still otherwise.
+    var drifting = false
+    /// Holds the drift where it is, while nothing can see it.
+    var paused = false
 
     var body: some View {
+        // Paced by the clock rather than by state, so artwork swapped in mid-drift picks up exactly
+        // where the last one was and the crossfade between them doesn't jump.
+        TimelineView(.animation(minimumInterval: 1 / 30, paused: !drifting || paused)) { ctx in
+            art(drift: drifting ? Drift(ctx.date) : Drift())
+        }
+        .frame(width: size.width, height: size.height)
+    }
+
+    private func art(drift d: Drift) -> some View {
         let accent = service.accent ?? service.color
-        ZStack {
+        return ZStack {
             Color.black
             LinearGradient(colors: [service.color, .black], startPoint: .topLeading, endPoint: .bottomTrailing)
             Circle()
                 .fill(accent)
                 .frame(width: size.width * 0.7)
+                .scaleEffect(1 + 0.08 * d.b)
                 .blur(radius: 180 * unit)
-                .offset(x: size.width * 0.32, y: -size.height * 0.35)
+                .offset(x: size.width * (0.32 + 0.05 * d.a), y: -size.height * (0.35 + 0.05 * d.b))
                 .opacity(0.8)
             Circle()
                 .fill(service.color)
                 .frame(width: size.width * 0.5)
                 .blur(radius: 160 * unit)
-                .offset(x: -size.width * 0.4, y: -size.height * 0.1)
+                .offset(x: -size.width * (0.4 - 0.06 * d.b), y: -size.height * (0.1 - 0.06 * d.a))
                 .opacity(0.6)
             watermark
-                .rotationEffect(.degrees(-10))
-                .offset(x: size.width * 0.26, y: -size.height * 0.2)
+                .rotationEffect(.degrees(-10 + 2.5 * d.a))
+                .offset(x: size.width * (0.26 - 0.012 * d.b), y: -size.height * (0.2 + 0.015 * d.a))
             LinearGradient(stops: [
                 .init(color: .clear, location: 0.0),
                 .init(color: .black.opacity(0.35), location: 0.3),
@@ -36,6 +50,20 @@ struct ShelfArt: View {
         }
         .frame(width: size.width, height: size.height)
         .drawingGroup()
+    }
+
+    /// Two slow, out-of-step waves (-1...1) that never quite repeat together.
+    private struct Drift {
+        var a: CGFloat = 0
+        var b: CGFloat = 0
+
+        init() {}
+
+        init(_ date: Date) {
+            let t = date.timeIntervalSinceReferenceDate
+            a = CGFloat(sin(t * 2 * .pi / 23))
+            b = CGFloat(sin(t * 2 * .pi / 31 + 1))
+        }
     }
 
     /// The symbol, or the brand's mark as a silhouette, fading out toward the bottom.

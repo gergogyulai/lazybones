@@ -64,7 +64,7 @@ struct AboutView: View {
     }
 
     private var footer: some View {
-        Text("Ad blocking by uBlock Origin Lite (GPLv3). Service logos are trademarks of their owners, used only to identify each service.")
+        Text(AboutInfo.credits)
             .font(.caption)
             .foregroundStyle(.secondary)
             .multilineTextAlignment(.center)
@@ -88,6 +88,7 @@ struct AboutInfo {
 
     static let repository = URL(string: "https://github.com/gergogyulai/lazybones")!
     static let issues = URL(string: "https://github.com/gergogyulai/lazybones/issues/new")!
+    static let credits = "Ad blocking by uBlock Origin Lite (GPLv3). Service logos are trademarks of their owners, used only to identify each service."
 
     static let current = AboutInfo(info: Bundle.main.infoDictionary ?? [:],
                                    resources: Bundle.main.resourceURL)

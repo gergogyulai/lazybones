@@ -150,7 +150,7 @@ final class LauncherLayoutTests: XCTestCase {
         let plain = layout(selected: 2, appFocused: false).frame(of: 2)
         XCTAssertEqual(focused.midX, plain.midX, accuracy: 0.001)
         XCTAssertEqual(focused.midY, plain.midY, accuracy: 0.001)
-        XCTAssertEqual(focused.width / plain.width, LauncherLayout.focusScale, accuracy: 0.001)
+        XCTAssertEqual(focused.width / plain.width, FocusSize.medium.scale, accuracy: 0.001)
     }
 
     func testIconsInARowShareTheSameTop() {

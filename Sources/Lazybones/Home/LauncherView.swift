@@ -5,6 +5,7 @@ import SwiftUI
 /// and leaves it as a blurred backdrop.
 struct LauncherView: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     /// The app the top shelf shows. It follows focus once focus rests, so a quick swipe across a
     /// row doesn't flash every app's artwork on the way.
     @State private var shelfID: String?
@@ -15,12 +16,16 @@ struct LauncherView: View {
     var body: some View {
         GeometryReader { geo in
             let apps = model.visible
-            let shelf = model.settings.showShelf
+            let settings = model.settings
+            let shelf = settings.showShelf
+            let motion = settings.homeMotion
             let layout = LauncherLayout(size: geo.size, columns: model.columns, shelf: shelf, count: apps.count,
-                                        selected: model.selected, appFocused: !model.focus.onBar)
+                                        selected: model.selected, appFocused: !model.focus.onBar,
+                                        focusScale: settings.focusSize.scale)
             let m = layout.metrics
             let barFocused = model.focus.onBar
             let audio = Set(model.backgroundAudio.map(\.id))
+            let nav = model.navDirection
 
             ZStack(alignment: .topLeading) {
                 if apps.isEmpty {
@@ -31,9 +36,17 @@ struct LauncherView: View {
                     let scrolled = layout.scrolled
 
                     if shelf {
-                        ShelfArt(service: shown, size: geo.size, unit: m.unit)
+                        // New artwork settles in from slightly closer, over the old one fading out.
+                        ShelfArt(service: shown, size: geo.size, unit: m.unit,
+                                 drifting: settings.shelfMotion && !reduceMotion, paused: model.zoomed)
                             .id(shown.id)
-                            .transition(.opacity)
+                            .transition(.asymmetric(
+                                insertion: reduceMotion ? .opacity : .opacity.combined(with: .scale(scale: 1.04)),
+                                removal: .opacity))
+                            // Recedes as the grid scrolls over it: pushed back, blurred, dimmed, and
+                            // drifting up a little behind the rows for depth.
+                            .scaleEffect(scrolled && !reduceMotion ? 1.06 : 1)
+                            .offset(y: reduceMotion ? 0 : max(layout.scrollOffset * 0.12, -70 * m.unit))
                             .blur(radius: scrolled ? 50 * m.unit : 0)
                             .overlay(Color.black.opacity(scrolled ? 0.55 : 0))
                             .ignoresSafeArea()
@@ -45,14 +58,19 @@ struct LauncherView: View {
                         ZStack(alignment: .bottomLeading) {
                             Color.clear
                             if shelf {
+                                // Slides in from the side focus moved toward, and the old one out
+                                // the other way, so the caption follows your thumb.
                                 ShelfCaption(service: shown, unit: m.unit)
                                     .id(shown.id)
-                                    .transition(.asymmetric(insertion: .opacity.combined(with: .offset(y: 16 * m.unit)),
-                                                            removal: .opacity))
+                                    .transition(reduceMotion ? .opacity : .asymmetric(
+                                        insertion: .opacity.combined(with: .offset(x: nav.width * 40 * m.unit, y: 14 * m.unit)),
+                                        removal: .opacity.combined(with: .offset(x: -nav.width * 28 * m.unit))))
                             }
                         }
                         .frame(height: m.headerHeight, alignment: .bottomLeading)
                         .padding(.bottom, m.captionGap)
+                        .blur(radius: scrolled && !reduceMotion ? 12 * m.unit : 0)
+                        .scaleEffect(scrolled && !reduceMotion ? 0.96 : 1, anchor: .bottomLeading)
                         .opacity(scrolled ? 0 : 1)
 
                         VStack(alignment: .leading, spacing: m.rowSpacing) {
@@ -60,14 +78,18 @@ struct LauncherView: View {
                                 HStack(spacing: m.gap) {
                                     ForEach(r * m.columns..<min((r + 1) * m.columns, apps.count), id: \.self) { i in
                                         AppIcon(service: apps[i], focused: i == layout.selected && !barFocused,
-                                                move: model.navDirection, trigger: model.navTick, metrics: m,
-                                                playing: audio.contains(apps[i].id))
+                                                move: nav, trigger: model.navTick, metrics: m,
+                                                playing: audio.contains(apps[i].id),
+                                                motion: motion, labels: settings.iconLabels)
                                             .zIndex(i == layout.selected ? 1 : 0)
                                             .onTapGesture { model.click(app: i) }
                                             .onHover { if $0 { model.hover(app: i) } }
                                     }
                                 }
                                 .zIndex(r == layout.row ? 1 : 0)
+                                // Rows that have scrolled up past focus fall back, so the one in
+                                // focus reads as in front.
+                                .opacity(scrolled && r < layout.row ? 0.45 : 1)
                             }
                         }
                     }
@@ -88,7 +110,7 @@ struct LauncherView: View {
                 // Only reachable from the first row, so it makes way for the row above when the grid
                 // scrolls up underneath it.
                 let barHidden = !apps.isEmpty && layout.scrolled
-                TopBar(unit: m.unit, focused: barFocused)
+                TopBar(unit: m.unit, focused: barFocused, showsClock: settings.showClock)
                     .padding(.trailing, m.sidePadding)
                     .padding(.top, 32 * m.unit)
                     .opacity(barHidden ? 0 : 1)
@@ -104,8 +126,14 @@ struct LauncherView: View {
                 guard !Task.isCancelled, shelfID != id else { return }
                 withAnimation(Motion.crossfade) { shelfID = id }
             }
-            .animation(Motion.scroll, value: layout.row)
-            .animation(Motion.focus, value: barFocused)
+            .animation(motion.scroll, value: layout.row)
+            .animation(motion.focus, value: barFocused)
+            // Changes made in Settings reshape the Home Screen in place rather than snapping.
+            .animation(Motion.expand, value: model.columns)
+            .animation(Motion.expand, value: shelf)
+            .animation(Motion.expand, value: settings.focusSize)
+            .animation(Motion.expand, value: settings.iconLabels)
+            .animation(Motion.expand, value: settings.showClock)
         }
         // The laid-out size, not the on-screen one: the launcher is scaled while an app zooms out
         // of it or a screen recedes it, and icon frames are worked out from the unscaled layout.
@@ -120,15 +148,21 @@ private struct TopBar: View {
     @EnvironmentObject var model: AppModel
     let unit: CGFloat
     let focused: Bool
+    var showsClock = true
 
     var body: some View {
         HStack(spacing: 28 * unit) {
-            TimelineView(.everyMinute) { ctx in
-                Text(ctx.date, format: .dateTime.hour().minute())
-                    .font(.system(size: 30 * unit, weight: .medium))
-                    .monospacedDigit()
-                    .foregroundStyle(.white.opacity(0.85))
-                    .shadow(color: .black.opacity(0.5), radius: 6 * unit)
+            if showsClock {
+                TimelineView(.everyMinute) { ctx in
+                    Text(ctx.date, format: .dateTime.hour().minute())
+                        .font(.system(size: 30 * unit, weight: .medium))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .foregroundStyle(.white.opacity(0.85))
+                        .shadow(color: .black.opacity(0.5), radius: 6 * unit)
+                        .animation(Motion.value, value: ctx.date)
+                }
+                .transition(.opacity.combined(with: .offset(x: 12 * unit)))
             }
             Image(systemName: "gearshape.fill")
                 .font(.system(size: 26 * unit, weight: .semibold))
